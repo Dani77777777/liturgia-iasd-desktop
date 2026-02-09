@@ -1,0 +1,247 @@
+import { app, BrowserWindow, Menu, screen, MenuItemConstructorOptions, shell, Display, dialog, nativeImage } from 'electron';
+import * as path from 'path';
+// import Store from 'electron-store'; // Setup later if needed for persistence
+
+// const store = new Store();
+
+// Configuration
+const DEV_URL = 'http://localhost:3000';
+const PROD_URL = 'https://liturgia-iasd.vercel.app'; // Replace with actual URL later
+const USE_DEV = process.env.NODE_ENV === 'development';
+const BASE_URL = USE_DEV ? DEV_URL : PROD_URL;
+
+let mainWindow: BrowserWindow | null = null;
+let presentationWindow: BrowserWindow | null = null;
+let store: any; // e.g. let store = new Store(); (initialized dynamically)
+
+function createMainWindow() {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    return;
+  }
+
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
+  const appIcon = nativeImage.createFromPath(iconPath);
+
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    title: "Liturgia IASD - Painel de Controlo",
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true
+    },
+    autoHideMenuBar: true, // Hide menu bar (press Alt to show)
+    icon: appIcon,
+  });
+
+  // Load the Control Panel (Agenda with live events view)
+  mainWindow.loadURL(`${BASE_URL}/liturgia/agenda?view=hoje`).catch((e: unknown) => {
+    console.error('Failed to load URL:', e);
+    // You could load a local error page here if you wanted
+    // mainWindow.loadFile(path.join(__dirname, 'error.html'));
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    // Close presentation window if main app closes?
+    // app.quit(); 
+  });
+  
+  // Handle new window requests (e.g. target="_blank")
+  // Handle new window requests (e.g. target="_blank")
+  mainWindow.webContents.setWindowOpenHandler(({ url }: { url: string }) => {
+    // Check if it's a presentation URL (contains /present/)
+    if (url.includes('/present/')) {
+        console.log('Intercepted presentation URL:', url);
+        let displayId = store ? store.get('projectionDisplayId') : null;
+        
+        if (!displayId) {
+            // Auto-detect secondary display
+            const displays = screen.getAllDisplays();
+            if (displays.length > 1) {
+                // Pick the last one (usually the external one)
+                const secondary = displays[displays.length - 1];
+                displayId = secondary.id;
+                if (store) store.set('projectionDisplayId', displayId);
+                console.log('Auto-detected secondary display:', displayId);
+            } else {
+                // Verify if we should use the primary or show error
+                 dialog.showMessageBox(mainWindow!, {
+                    type: 'info',
+                    title: 'Configuração de Projeção',
+                    message: 'Nenhum segundo monitor detetado. A abrir no monitor principal para testes.',
+                    buttons: ['OK']
+                });
+                displayId = screen.getPrimaryDisplay().id;
+            }
+        }
+
+        if (displayId) {
+            createPresentationWindow(displayId, url);
+        }
+        
+        return { action: 'deny' };
+    }
+
+    // Allow external links to open in browser
+    if (url.startsWith('http')) {
+        shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  updateMenu();
+}
+
+function createPresentationWindow(displayId: number, targetUrl?: string) {
+  // If exists, close it first (or reuse it?)
+  if (presentationWindow) {
+    presentationWindow.close();
+    presentationWindow = null;
+  }
+
+  const displays = screen.getAllDisplays();
+  const targetDisplay = displays.find((d: Display) => d.id === displayId);
+
+  if (!targetDisplay) {
+    console.error('Display not found');
+    return;
+  }
+
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
+  const appIcon = nativeImage.createFromPath(iconPath);
+
+  presentationWindow = new BrowserWindow({
+    x: targetDisplay.bounds.x,
+    y: targetDisplay.bounds.y,
+    width: targetDisplay.bounds.width,
+    height: targetDisplay.bounds.height,
+    fullscreen: true,
+    frame: false, // Frameless for projection
+    title: "Liturgia IASD - Projeção",
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    },
+    icon: appIcon,
+  });
+
+  // Presentation URL - we need a way to know WHICH event ID.
+  // For now, let's load the flexible generic present page or ask the user.
+  // Ideally: The user clicks "Open Projection" in Main Window -> we intercept -> open here.
+  // Since we don't have the ID here easily, let's load the creation/landing page or a specific hardcoded one for testing.
+  // Better approach: Just open the base present URL, and the user might need to navigate?
+  // Or: Input Prompt? 
+  // Let's default to a "waiting" screen or the last known ID?
+  // Let's just load the root present path if it exists, or maybe we can't without ID.
+  // Let's load the Agenda for now so they can click, OR...
+  // Wait, let's assume the user copies the link from the main window.
+  
+  // For MVP: Let's just load the base URL and let them navigate, or maybe hardcode an ID for testing?
+  // Let's try to load the generic presentation intro if available, or just the home page.
+  
+  // IMPORTANT: The user wants to "select window to open the presentation".
+  // Let's load the URL that was requested? 
+  // Let's just load the home for now, but maybe we can communicate via IPC to send the URL.
+  
+  // Load the requested URL or default demo
+  const urlToLoad = targetUrl || `${BASE_URL}/present/demo`;
+  presentationWindow.loadURL(urlToLoad);
+
+  presentationWindow.on('closed', () => {
+    presentationWindow = null;
+    updateMenu(); // Update menu to disable close button
+  });
+
+  updateMenu(); // Update menu to enable close button
+}
+
+function updateMenu() {
+  const displays = screen.getAllDisplays();
+  
+  const currentDisplayId = store ? store.get('projectionDisplayId') : null;
+
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: 'Arquivo',
+      submenu: [
+        { role: 'quit', label: 'Sair' }
+      ]
+    },
+    {
+        label: 'Projeção',
+        submenu: [
+            { label: 'Definir Ecrã de Projeção', enabled: false },
+            { type: 'separator' },
+            ...displays.map((display: Display, index: number) => ({
+                label: `Ecrã ${index + 1}: ${display.bounds.width}x${display.bounds.height} ${display.id === screen.getPrimaryDisplay().id ? '(Principal)' : ''}`,
+                type: 'radio' as const,
+                checked: currentDisplayId === display.id,
+                click: () => {
+                    if (store) {
+                        store.set('projectionDisplayId', display.id);
+                        updateMenu(); // Refresh checkmark
+                    }
+                }
+            })),
+            { type: 'separator' },
+            { 
+                label: 'Fechar Projeção', 
+                enabled: !!presentationWindow,
+                click: () => {
+                    if (presentationWindow) {
+                        presentationWindow.close();
+                        presentationWindow = null;
+                        updateMenu(); // Refresh menu state
+                    }
+                }
+            }
+        ]
+    },
+    {
+       label: 'Janela',
+       submenu: [
+           { label: 'Recarregar', role: 'reload' },
+           { label: 'Ferramentas de Desenvolvedor', role: 'toggleDevTools' }
+       ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+
+app.whenReady().then(async () => {
+  // Initialize Electron Store dynamically (ESM workaround)
+  try {
+      const { default: Store } = await import('electron-store');
+      store = new Store();
+      console.log('Store initialized:', store.path);
+  } catch (err) {
+      console.error('Failed to init store:', err);
+  }
+
+  createMainWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createMainWindow();
+    }
+  });
+  
+  // Refresh menu when displays change
+  screen.on('display-added', updateMenu);
+  screen.on('display-removed', updateMenu);
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
