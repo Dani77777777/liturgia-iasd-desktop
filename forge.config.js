@@ -19,6 +19,16 @@ module.exports = {
         iconUrl: 'https://liturgia-iasd.vercel.app/icon.ico', // URL to icon (required for Squirrel)
         setupIcon: './build/icon.ico',
         loadingGif: './build/icon.png', // Optional loading animation
+        
+        // Shortcuts configuration
+        setupExe: 'LiturgiaIASD-Setup.exe',
+        noMsi: true, // Don't create MSI installer
+        
+        // Create shortcuts
+        shortcutName: 'Liturgia IASD', // Name that appears in Start Menu and Desktop
+        
+        // Uninstaller configuration (automatically registered in Add/Remove Programs)
+        // The uninstaller is created automatically by Squirrel
       },
     },
     // Windows - ZIP (portable)
