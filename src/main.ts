@@ -21,6 +21,82 @@ let presentationWindow: BrowserWindow | null = null;
 let store: any; // e.g. let store = new Store(); (initialized dynamically)
 
 // ============================================
+// SQUIRREL EVENTS HANDLER (Windows Installer)
+// ============================================
+
+/**
+ * Handle Squirrel events on Windows (install, update, uninstall)
+ * This ensures shortcuts are created properly
+ */
+function handleSquirrelEvent(): boolean {
+  if (process.platform !== 'win32') {
+    return false;
+  }
+
+  if (process.argv.length === 1) {
+    return false;
+  }
+
+  const appFolder = path.resolve(process.execPath, '..');
+  const rootFolder = path.resolve(appFolder, '..');
+  const updateExe = path.resolve(path.join(rootFolder, 'Update.exe'));
+  const exeName = path.basename(process.execPath);
+
+  const spawn = function(command: string, args: string[]) {
+    let spawnedProcess;
+    try {
+      spawnedProcess = require('child_process').spawn(command, args, { detached: true });
+    } catch (error) {
+      console.error('Error spawning process:', error);
+    }
+    return spawnedProcess;
+  };
+
+  const spawnUpdate = function(args: string[]) {
+    return spawn(updateExe, args);
+  };
+
+  const squirrelEvent = process.argv[1];
+  
+  switch (squirrelEvent) {
+    case '--squirrel-install':
+    case '--squirrel-updated':
+      // Install desktop and start menu shortcuts
+      spawnUpdate(['--createShortcut', exeName]);
+      setTimeout(app.quit, 1000);
+      return true;
+
+    case '--squirrel-uninstall':
+      // Remove desktop and start menu shortcuts
+      spawnUpdate(['--removeShortcut', exeName]);
+      setTimeout(app.quit, 1000);
+      return true;
+
+    case '--squirrel-obsolete':
+      // This is called on the outgoing version of your app before
+      // we update to the new version - it's the opposite of
+      // --squirrel-updated
+      app.quit();
+      return true;
+  }
+
+  return false;
+}
+
+// Handle Squirrel events before anything else
+if (handleSquirrelEvent()) {
+  // Squirrel event handled, app will quit
+  // Don't do anything else
+} else {
+  // Normal app startup continues below
+}
+
+// ============================================
+// END SQUIRREL EVENTS HANDLER
+// ============================================
+
+
+// ============================================
 // AUTO-UPDATE SYSTEM
 // ============================================
 
