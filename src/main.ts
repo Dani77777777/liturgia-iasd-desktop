@@ -46,9 +46,12 @@ function createMainWindow() {
   });
 
   mainWindow.on('closed', () => {
+    // Close presentation window when main window closes
+    if (presentationWindow && !presentationWindow.isDestroyed()) {
+      presentationWindow.close();
+      presentationWindow = null;
+    }
     mainWindow = null;
-    // Close presentation window if main app closes?
-    // app.quit(); 
   });
   
   // Handle new window requests (e.g. target="_blank")
@@ -98,10 +101,22 @@ function createMainWindow() {
 }
 
 function createPresentationWindow(displayId: number, targetUrl?: string) {
-  // If exists, close it first (or reuse it?)
-  if (presentationWindow) {
-    presentationWindow.close();
-    presentationWindow = null;
+  // If presentation window already exists, focus it and cancel creation
+  if (presentationWindow && !presentationWindow.isDestroyed()) {
+    presentationWindow.focus();
+    console.log('Presentation window already open, focusing existing window');
+    
+    // Optionally show a message to the user
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Apresentação Já Aberta',
+        message: 'A janela de apresentação já está aberta. Clique ALT para abrir o menu. Use o menu "Projeção > Fechar Projeção" para fechá-la primeiro.',
+        buttons: ['OK']
+      });
+    }
+    
+    return; // Cancel creation
   }
 
   const displays = screen.getAllDisplays();
