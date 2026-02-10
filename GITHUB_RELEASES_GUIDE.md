@@ -8,7 +8,7 @@ Este guia mostra como usar **GitHub Releases** para distribuir atualizações au
 
 ## 📋 Pré-requisitos
 
-- ✅ Repositório GitHub: `https://github.com/Dani777777777/liturgia-iasd-desktop`
+- ✅ Repositório GitHub: `https://github.com/Dani77777777/liturgia-iasd-desktop`
 - ✅ Código já configurado (URL do GitHub Releases no `main.ts`)
 - ✅ GitHub CLI instalado (opcional, mas recomendado)
 
@@ -35,7 +35,7 @@ out/make/squirrel.windows/x64/
 
 **Opção A: Via Interface Web (Mais Fácil)**
 
-1. Acesse: https://github.com/Dani777777777/liturgia-iasd-desktop/releases/new
+1. Acesse: https://github.com/Dani77777777/liturgia-iasd-desktop/releases/new
 
 2. Preencha:
    - **Tag version**: `v1.0.0`
@@ -77,12 +77,12 @@ gh release create v1.0.0 \
 
 Compartilhe o link do instalador:
 ```
-https://github.com/Dani777777777/liturgia-iasd-desktop/releases/download/v1.0.0/LiturgiaIASD-1.0.0%20Setup.exe
+https://github.com/Dani77777777/liturgia-iasd-desktop/releases/download/v1.0.0/LiturgiaIASD-1.0.0%20Setup.exe
 ```
 
 Ou use o link "latest" (sempre aponta para a versão mais recente):
 ```
-https://github.com/Dani777777777/liturgia-iasd-desktop/releases/latest/download/LiturgiaIASD-1.0.0%20Setup.exe
+https://github.com/Dani77777777/liturgia-iasd-desktop/releases/latest/download/LiturgiaIASD-1.0.0%20Setup.exe
 ```
 
 ---
@@ -114,7 +114,7 @@ npm run dist
 
 **Via Interface Web:**
 
-1. Acesse: https://github.com/Dani777777777/liturgia-iasd-desktop/releases/new
+1. Acesse: https://github.com/Dani77777777/liturgia-iasd-desktop/releases/new
 
 2. Preencha:
    - **Tag version**: `v1.1.0`
@@ -164,7 +164,7 @@ gh release create v1.1.0 \
 ### URL do GitHub Releases
 
 ```
-https://github.com/Dani777777777/liturgia-iasd-desktop/releases/latest/download/RELEASES
+https://github.com/Dani77777777/liturgia-iasd-desktop/releases/latest/download/RELEASES
 │                    │                                  │      │        │
 │                    │                                  │      │        └─ Nome do arquivo
 │                    │                                  │      └─ Sempre pega a versão mais recente
@@ -309,7 +309,7 @@ Antes de criar um novo release:
 **Causa:** Release não existe ou arquivos não foram anexados
 
 **Solução:**
-1. Verificar se o release existe: https://github.com/Dani777777777/liturgia-iasd-desktop/releases
+1. Verificar se o release existe: https://github.com/Dani77777777/liturgia-iasd-desktop/releases
 2. Verificar se os 3 arquivos estão anexados
 3. Verificar se o release está marcado como "Latest"
 
@@ -383,9 +383,9 @@ gh release create v1.1.0 \
 
 ## 📚 Links Úteis
 
-- **Seu repositório:** https://github.com/Dani777777777/liturgia-iasd-desktop
-- **Releases:** https://github.com/Dani777777777/liturgia-iasd-desktop/releases
-- **Criar novo release:** https://github.com/Dani777777777/liturgia-iasd-desktop/releases/new
+- **Seu repositório:** https://github.com/Dani77777777/liturgia-iasd-desktop
+- **Releases:** https://github.com/Dani77777777/liturgia-iasd-desktop/releases
+- **Criar novo release:** https://github.com/Dani77777777/liturgia-iasd-desktop/releases/new
 - **GitHub CLI:** https://cli.github.com/
 
 ---

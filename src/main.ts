@@ -13,7 +13,7 @@ const BASE_URL = USE_DEV ? DEV_URL : PROD_URL;
 
 // Auto-Update Configuration
 // Using GitHub Releases for automatic updates
-const UPDATE_SERVER_URL = 'https://github.com/Dani777777777/liturgia-iasd-desktop/releases/latest/download';
+const UPDATE_SERVER_URL = 'https://github.com/Dani77777777/liturgia-iasd-desktop/releases/latest/download';
 const AUTO_UPDATE_ENABLED = !USE_DEV && process.platform === 'win32'; // Only on Windows production builds
 
 let mainWindow: BrowserWindow | null = null;
