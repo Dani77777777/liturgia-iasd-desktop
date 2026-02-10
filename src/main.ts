@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, screen, MenuItemConstructorOptions, shell, Display, dialog, nativeImage } from 'electron';
+import { app, BrowserWindow, Menu, screen, MenuItemConstructorOptions, shell, Display, dialog, nativeImage, autoUpdater } from 'electron';
 import * as path from 'path';
 // import Store from 'electron-store'; // Setup later if needed for persistence
 
@@ -10,9 +10,157 @@ const PROD_URL = 'https://liturgia-iasd.vercel.app'; // Replace with actual URL 
 const USE_DEV = process.env.NODE_ENV === 'development';
 const BASE_URL = USE_DEV ? DEV_URL : PROD_URL;
 
+
+// Auto-Update Configuration
+// Using GitHub Releases for automatic updates
+const UPDATE_SERVER_URL = 'https://github.com/Dani777777777/liturgia-iasd-desktop/releases/latest/download';
+const AUTO_UPDATE_ENABLED = !USE_DEV && process.platform === 'win32'; // Only on Windows production builds
+
 let mainWindow: BrowserWindow | null = null;
 let presentationWindow: BrowserWindow | null = null;
 let store: any; // e.g. let store = new Store(); (initialized dynamically)
+
+// ============================================
+// AUTO-UPDATE SYSTEM
+// ============================================
+
+/**
+ * Initialize and configure the auto-updater
+ */
+function setupAutoUpdater() {
+  if (!AUTO_UPDATE_ENABLED) {
+    console.log('Auto-update disabled (dev mode or non-Windows platform)');
+    return;
+  }
+
+  console.log('Setting up auto-updater...');
+  console.log('Update server:', UPDATE_SERVER_URL);
+
+  // Configure the update feed URL
+  autoUpdater.setFeedURL({
+    url: UPDATE_SERVER_URL
+  });
+
+  // Event: Checking for updates
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for updates...');
+  });
+
+  // Event: Update available
+  autoUpdater.on('update-available', () => {
+    console.log('Update available! Downloading...');
+    
+    // Optional: Show notification to user
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Atualização Disponível',
+        message: 'Uma nova versão está sendo baixada em segundo plano.',
+        buttons: ['OK']
+      });
+    }
+  });
+
+  // Event: Update not available
+  autoUpdater.on('update-not-available', () => {
+    console.log('App is up to date.');
+  });
+
+  // Event: Update downloaded (ready to install)
+  autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName, releaseDate, updateURL) => {
+    console.log('Update downloaded:', releaseName);
+    console.log('Release notes:', releaseNotes);
+    console.log('Release date:', releaseDate);
+
+    // Notify user and ask to restart
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Atualização Pronta',
+        message: `Uma nova versão (${releaseName}) foi instalada.\n\nDeseja reiniciar a aplicação agora para aplicar a atualização?`,
+        detail: releaseNotes || 'Melhorias e correções de bugs.',
+        buttons: ['Reiniciar Agora', 'Reiniciar Depois'],
+        defaultId: 0,
+        cancelId: 1
+      }).then((result) => {
+        if (result.response === 0) {
+          // User chose to restart now
+          console.log('User chose to restart now');
+          autoUpdater.quitAndInstall();
+        } else {
+          // User chose to restart later
+          console.log('User chose to restart later');
+        }
+      });
+    }
+  });
+
+  // Event: Error during update
+  autoUpdater.on('error', (error) => {
+    console.error('Auto-updater error:', error);
+    
+    // Optional: Show error to user (only in dev or if critical)
+    // Uncomment if you want to show errors to users:
+    /*
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Erro na Atualização',
+        message: 'Não foi possível verificar atualizações.',
+        detail: error.message,
+        buttons: ['OK']
+      });
+    }
+    */
+  });
+
+  // Check for updates on startup (after 3 seconds delay)
+  setTimeout(() => {
+    console.log('Checking for updates...');
+    autoUpdater.checkForUpdates();
+  }, 3000);
+
+  // Check for updates every 4 hours
+  setInterval(() => {
+    console.log('Periodic update check...');
+    autoUpdater.checkForUpdates();
+  }, 4 * 60 * 60 * 1000); // 4 hours in milliseconds
+}
+
+/**
+ * Manually trigger update check (can be called from menu)
+ */
+function checkForUpdatesManually() {
+  if (!AUTO_UPDATE_ENABLED) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Atualizações Automáticas',
+        message: 'As atualizações automáticas estão disponíveis apenas na versão de produção para Windows.',
+        buttons: ['OK']
+      });
+    }
+    return;
+  }
+
+  console.log('Manual update check triggered');
+  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Verificando Atualizações',
+      message: 'Verificando se há atualizações disponíveis...',
+      buttons: ['OK']
+    });
+  }
+
+  autoUpdater.checkForUpdates();
+}
+
+// ============================================
+// END AUTO-UPDATE SYSTEM
+// ============================================
+
 
 function createMainWindow() {
   if (mainWindow) {
@@ -224,6 +372,32 @@ function updateMenu() {
            { label: 'Recarregar', role: 'reload' },
            { label: 'Ferramentas de Desenvolvedor', role: 'toggleDevTools' }
        ]
+    },
+    {
+      label: 'Ajuda',
+      submenu: [
+        {
+          label: 'Verificar Atualizações',
+          click: () => {
+            checkForUpdatesManually();
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Sobre',
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Liturgia IASD Desktop',
+                message: `Liturgia IASD Desktop\nVersão ${app.getVersion()}`,
+                detail: 'Desktop wrapper para gestão de liturgia da IASD com suporte multi-janela.',
+                buttons: ['OK']
+              });
+            }
+          }
+        }
+      ]
     }
   ];
 
@@ -243,6 +417,9 @@ app.whenReady().then(async () => {
   }
 
   createMainWindow();
+
+  // Initialize auto-updater
+  setupAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

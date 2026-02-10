@@ -107,5 +107,41 @@ A aplicação aponta por defeito para:
 - Desenvolvimento: `http://localhost:3000`
 - Produção: `https://liturgia-iasd.vercel.app`
 
+## 🔄 Auto-Update (Atualizações Automáticas)
+
+A aplicação inclui um sistema de **auto-update** integrado usando Squirrel.Windows:
+
+### ✨ Funcionalidades
+- ✅ Verificação automática de atualizações (startup + a cada 4 horas)
+- ✅ Download e instalação em background
+- ✅ Notificação ao usuário quando pronto
+- ✅ Verificação manual via menu: **Ajuda > Verificar Atualizações**
+- ✅ Delta updates (baixa apenas diferenças entre versões)
+
+### 📦 Como Funciona
+```
+App inicia → Verifica servidor → Nova versão? → Baixa em background → 
+Notifica usuário → Reinicia → Atualizado! ✅
+```
+
+### ⚙️ Configuração
+Para habilitar auto-updates em produção:
+
+1. **Hospedar arquivos de update** (após `npm run dist`):
+   - `RELEASES` (metadados)
+   - `liturgia-iasd-[version]-full.nupkg` (pacote)
+
+2. **Configurar URL no código** (`src/main.ts`):
+   ```typescript
+   const UPDATE_SERVER_URL = 'https://seu-servidor.com/updates';
+   ```
+
+3. **Opções de hospedagem:**
+   - GitHub Releases (recomendado - grátis)
+   - Vercel/Netlify
+   - Servidor próprio
+
+📖 **Guia completo:** Veja [AUTO_UPDATE_GUIDE.md](./AUTO_UPDATE_GUIDE.md) para instruções detalhadas.
+
 ## 📄 Licença
 Este projeto está sob a licença ISC.
