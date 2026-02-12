@@ -1,5 +1,9 @@
 import { app, BrowserWindow, Menu, screen, MenuItemConstructorOptions, shell, Display, dialog, nativeImage, autoUpdater } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+
 // import Store from 'electron-store'; // Setup later if needed for persistence
 
 // const store = new Store();
@@ -19,6 +23,33 @@ const AUTO_UPDATE_ENABLED = !USE_DEV && process.platform === 'win32'; // Only on
 let mainWindow: BrowserWindow | null = null;
 let presentationWindow: BrowserWindow | null = null;
 let store: any; // e.g. let store = new Store(); (initialized dynamically)
+
+let supabaseClient: any = null;
+let currentEvent: { id: string, data: string, titulo: string } | null = null;
+
+// Paths
+const WEB_APP_PATH = path.join(__dirname, '..', '..', 'liturgia-iasd');
+const ENV_PATH = path.join(WEB_APP_PATH, '.env.local');
+
+/**
+ * Initialize Supabase client using credentials from the web app's .env.local
+ */
+function initSupabase() {
+  if (fs.existsSync(ENV_PATH)) {
+    const envConfig = dotenv.parse(fs.readFileSync(ENV_PATH));
+    const supabaseUrl = envConfig.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = envConfig.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseKey) {
+      supabaseClient = createClient(supabaseUrl, supabaseKey);
+      console.log('Supabase client initialized with credentials from .env.local');
+    } else {
+      console.error('Supabase credentials not found in .env.local');
+    }
+  } else {
+    console.error('.env.local not found at:', ENV_PATH);
+  }
+}
 
 // ============================================
 // SQUIRREL EVENTS HANDLER (Windows Installer)
@@ -265,9 +296,28 @@ function createMainWindow() {
   // Load the Control Panel (Agenda with live events view)
   mainWindow.loadURL(`${BASE_URL}/liturgia/agenda?view=hoje`).catch((e: unknown) => {
     console.error('Failed to load URL:', e);
-    // You could load a local error page here if you wanted
-    // mainWindow.loadFile(path.join(__dirname, 'error.html'));
   });
+
+  // Monitor URL changes to detect if we are in an event/schedule page
+  const handleURLChange = async (url: string) => {
+    console.log('Navigated to:', url);
+    const eventMatch = url.match(/\/liturgia\/evento\/(\d+)/);
+    
+    if (eventMatch) {
+      const eventId = eventMatch[1];
+      if (currentEvent?.id !== eventId) {
+        await fetchEventDetails(eventId);
+      }
+    } else {
+      if (currentEvent !== null) {
+        currentEvent = null;
+        updateMenu();
+      }
+    }
+  };
+
+  mainWindow.webContents.on('did-navigate', (event, url) => handleURLChange(url));
+  mainWindow.webContents.on('did-navigate-in-page', (event, url) => handleURLChange(url));
 
   mainWindow.on('closed', () => {
     // Close presentation window when main window closes
@@ -400,6 +450,102 @@ function createPresentationWindow(displayId: number, targetUrl?: string) {
   updateMenu(); // Update menu to enable close button
 }
 
+/**
+ * Fetch event details from Supabase
+ */
+async function fetchEventDetails(id: string) {
+  if (!supabaseClient) {
+    console.error('Supabase client not initialized');
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('dbEventos')
+      .select('id, data, titulo')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+
+    if (data) {
+      currentEvent = {
+        id: data.id.toString(),
+        data: data.data,
+        titulo: data.titulo
+      };
+      updateMenu();
+    }
+  } catch (err) {
+    console.error('Error fetching event details:', err);
+  }
+}
+
+/**
+ * Logic to handle PowerPoint opening/creation
+ */
+async function handlePowerPointAction() {
+  if (!currentEvent) return;
+
+  const eventDate = new Date(currentEvent.data);
+  const year = eventDate.getFullYear().toString();
+  const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const monthName = months[eventDate.getMonth()];
+  const day = eventDate.getDate().toString();
+  
+  const dd = day.padStart(2, '0');
+  const mm = (eventDate.getMonth() + 1).toString().padStart(2, '0');
+  const fileName = `${dd}-${mm}-${year}.pptx`;
+
+  // Detect External Drive
+  const drives = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(d => `${d}:\\`);
+  let targetDrive: string | null = null;
+
+  for (const drive of drives) {
+    try {
+      if (fs.existsSync(path.join(drive, 'Cultos')) && fs.existsSync(path.join(drive, 'Modelo'))) {
+        targetDrive = drive;
+        break;
+      }
+    } catch (e) { /* ignore restricted drives */ }
+  }
+
+  if (!targetDrive) {
+    dialog.showErrorBox('Erro', 'Disco externo não encontrado. Certifique-se que o disco contém as pastas "Cultos" e "Modelo" na raiz.');
+    return;
+  }
+
+  const modelPath = path.join(targetDrive, 'Modelo', 'Apresentação para o Culto - Modelo.pptx');
+  if (!fs.existsSync(modelPath)) {
+    dialog.showErrorBox('Erro', `Ficheiro modelo não encontrado em: ${modelPath}`);
+    return;
+  }
+
+  const targetDir = path.join(targetDrive, 'Cultos', year, monthName, day);
+  const finalFilePath = path.join(targetDir, fileName);
+
+  try {
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    if (!fs.existsSync(finalFilePath)) {
+      fs.copyFileSync(modelPath, finalFilePath);
+      console.log('Created new pptx from model:', finalFilePath);
+    }
+
+    shell.openPath(finalFilePath).then((err) => {
+        if (err) {
+            dialog.showErrorBox('Erro ao abrir PowerPoint', err);
+        }
+    });
+
+  } catch (err: any) {
+    console.error('Error in handlePowerPointAction:', err);
+    dialog.showErrorBox('Erro de Ficheiro', `Ocorreu um erro ao processar o ficheiro: ${err.message}`);
+  }
+}
+
 function updateMenu() {
   const displays = screen.getAllDisplays();
   
@@ -412,6 +558,15 @@ function updateMenu() {
         { role: 'quit', label: 'Sair' }
       ]
     },
+    ...(currentEvent ? [{
+      label: 'Culto',
+      submenu: [
+        {
+          label: `Abrir PowerPoint (${new Date(currentEvent.data).toLocaleDateString('pt-PT')})`,
+          click: () => handlePowerPointAction()
+        }
+      ]
+    } as MenuItemConstructorOptions] : []),
     {
         label: 'Projeção',
         submenu: [
@@ -485,6 +640,7 @@ function updateMenu() {
 app.whenReady().then(async () => {
   // Initialize Electron Store dynamically (ESM workaround)
   try {
+      initSupabase();
       const { default: Store } = await import('electron-store');
       store = new Store();
       console.log('Store initialized:', store.path);

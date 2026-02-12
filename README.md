@@ -6,9 +6,11 @@ Wrapper Electron para a aplicação de gestão de liturgia da IASD, permitindo u
 
 - **Painel de Controlo Nativo**: Interface otimizada para gestão da liturgia em tempo real.
 - **Suporte Multi-Monitor**: Projeção direta em ecrãs secundários (projetores/TVs) sem molduras e em ecrã total.
-- **Deteção Automática**: Identifica automaticamente novos monitores conectados.
+- **Deteção Automática de Escala**: Identifica automaticamente qual o culto aberto através da URL e sincroniza com o Supabase.
+- **Automação de PowerPoint**: Criação e abertura automática de apresentações PowerPoint em discos externos.
+- **Deteção de Monitores**: Identifica automaticamente novos monitores conectados.
 - **Persistência**: Lembra-se da configuração de ecrã preferida para projeção.
-- **Menu Integrado**: Atalhos para ferramentas de desenvolvimento e gestão de janelas.
+- **Menu Integrado**: Botão dinâmico "Culto" que aparece apenas quando há uma escala carregada.
 
 ## 🛠️ Instalação e Desenvolvimento
 
@@ -143,5 +145,25 @@ Para habilitar auto-updates em produção:
 
 📖 **Guia completo:** Veja [AUTO_UPDATE_GUIDE.md](./AUTO_UPDATE_GUIDE.md) para instruções detalhadas.
 
-## 📄 Licença
-Este projeto está sob a licença ISC.
+## �️ Automação de PowerPoint
+
+A aplicação permite a abertura ultra-rápida do PowerPoint do culto com um clique:
+
+### Como Funciona
+1. **Deteção**: Ao entrar numa escala (ex: `.../liturgia/evento/54`), a aplicação identifica a data do culto via Supabase.
+2. **Menu**: Pressione `Alt` para ver o menu **"Culto > Abrir PowerPoint"**.
+3. **Processamento**:
+   - Procura um disco externo com as pastas `Cultos` e `Modelo`.
+   - Se o ficheiro não existir, cria a pasta do dia e copia o modelo padrão.
+   - Abre o ficheiro imediatamente no PowerPoint.
+
+### Estrutura Necessária no Disco Externo
+- `Modelo\`
+  - `Apresentação para o Culto - Modelo.pptx` (Template base)
+- `Cultos\` (A aplicação criará as subpastas aqui)
+
+### Regras de Nomenclatura
+- **Pasta:** `Cultos\{Ano}\{Mês}\{Dia}\`
+  - Ex: `D:\Cultos\2026\Fevereiro\14\`
+- **Ficheiro:** `DD-MM-AAAA.pptx`
+  - Ex: `14-02-2026.pptx`
