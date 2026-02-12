@@ -32,22 +32,18 @@ const WEB_APP_PATH = path.join(__dirname, '..', '..', 'liturgia-iasd');
 const ENV_PATH = path.join(WEB_APP_PATH, '.env.local');
 
 /**
- * Initialize Supabase client using credentials from the web app's .env.local
+ * Initialize Supabase client
  */
 function initSupabase() {
-  if (fs.existsSync(ENV_PATH)) {
-    const envConfig = dotenv.parse(fs.readFileSync(ENV_PATH));
-    const supabaseUrl = envConfig.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = envConfig.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Hardcoded credentials for production stability
+  const supabaseUrl = 'https://qzmigrvjpanjoalsdsaa.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6bWlncnZqcGFuam9hbHNkc2FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2Njk3MTEsImV4cCI6MjA3OTI0NTcxMX0._tK29U5QdHgTN7JvwKn7H7lQgLTDZ4Heb-l4Y9Pj5HM';
 
-    if (supabaseUrl && supabaseKey) {
-      supabaseClient = createClient(supabaseUrl, supabaseKey);
-      console.log('Supabase client initialized with credentials from .env.local');
-    } else {
-      console.error('Supabase credentials not found in .env.local');
-    }
+  if (supabaseUrl && supabaseKey) {
+    supabaseClient = createClient(supabaseUrl, supabaseKey);
+    console.log('Supabase client initialized with hardcoded credentials');
   } else {
-    console.error('.env.local not found at:', ENV_PATH);
+    console.error('Supabase credentials missing');
   }
 }
 
