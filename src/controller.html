@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
+  <title>Controlo do Culto</title>
+  <style>
+    :root {
+      --bg: #0f0f11;
+      --surface: #1a1a1f;
+      --surface2: #24242b;
+      --border: #2e2e38;
+      --text: #e8e8f0;
+      --muted: #8888a0;
+      --primary: #6366f1;
+      --primary-hover: #4f52d4;
+      --red: #ef4444;
+      --green: #22c55e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+      -webkit-app-region: drag; /* Make the whole window draggable */
+    }
+
+    /* Title bar */
+    .titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      opacity: 0.5;
+    }
+
+    .titlebar-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .event-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text);
+      opacity: 0.7;
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Main content */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 12px;
+      -webkit-app-region: no-drag;
+      overflow: hidden;
+    }
+
+    /* On Air / Current Item */
+    .on-air-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    .on-air-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .on-air-badge.live {
+      color: var(--red);
+    }
+
+    .on-air-badge.idle {
+      color: var(--muted);
+    }
+
+    .on-air-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--red);
+      animation: pulse 1.2s infinite;
+      flex-shrink: 0;
+    }
+
+    .on-air-dot.idle {
+      background: var(--muted);
+      animation: none;
+      opacity: 0.5;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .current-item-title {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .current-item-title.idle {
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .current-item-sub {
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Next item preview */
+    .next-preview {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .next-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .next-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.8;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+
+    .btn {
+      flex: 1;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      outline: none;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-prev {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-prev:hover {
+      background: var(--border);
+    }
+
+    .btn-next {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-next:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-next:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-prev:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Progress dots */
+    .progress {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 2px 0;
+      flex-shrink: 0;
+    }
+
+    .progress-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: all 0.2s ease;
+    }
+
+    .progress-dot.done {
+      background: var(--muted);
+      opacity: 0.4;
+    }
+
+    .progress-dot.current {
+      background: var(--red);
+      width: 14px;
+      border-radius: 3px;
+    }
+
+    .progress-dot.pending {
+      background: var(--border);
+    }
+
+    /* Status line */
+    .status {
+      text-align: center;
+      font-size: 10px;
+      color: var(--muted);
+      flex-shrink: 0;
+      padding-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="titlebar">
+    <div class="titlebar-left">
+      <div class="dot"></div>
+      <span class="titlebar-title">Controlo</span>
+    </div>
+    <span class="event-title" id="event-title">—</span>
+  </div>
+
+  <div class="content">
+    <!-- Current Item (On Air) -->
+    <div class="on-air-section">
+      <div class="on-air-badge idle" id="on-air-badge">
+        <div class="on-air-dot idle" id="on-air-dot"></div>
+        <span id="on-air-label">AGUARDAR</span>
+      </div>
+      <div class="current-item-title idle" id="current-title">Nenhum item activo</div>
+      <div class="current-item-sub" id="current-sub"></div>
+    </div>
+
+    <!-- Next Item Preview -->
+    <div class="next-preview">
+      <div class="next-label">A SEGUIR</div>
+      <div class="next-title" id="next-title">—</div>
+    </div>
+
+    <!-- Progress Dots -->
+    <div class="progress" id="progress-dots"></div>
+
+    <!-- Status -->
+    <div class="status" id="status-text">A aguardar ligação...</div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button id="btn-prev" class="btn btn-prev" disabled>
+        &#8593; Anterior
+      </button>
+      <button id="btn-next" class="btn btn-next">
+        Próximo &#8595;
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let currentState = { escala: [], currentIndex: -1, eventTitle: '' };
+
+    const elEventTitle = document.getElementById('event-title');
+    const elOnAirBadge = document.getElementById('on-air-badge');
+    const elOnAirDot = document.getElementById('on-air-dot');
+    const elOnAirLabel = document.getElementById('on-air-label');
+    const elCurrentTitle = document.getElementById('current-title');
+    const elCurrentSub = document.getElementById('current-sub');
+    const elNextTitle = document.getElementById('next-title');
+    const elProgressDots = document.getElementById('progress-dots');
+    const elStatusText = document.getElementById('status-text');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+
+    function renderState(state) {
+      currentState = state;
+      const { escala, currentIndex, eventTitle } = state;
+
+      // Event title
+      elEventTitle.textContent = eventTitle || '—';
+
+      // Filter out seccao items for display
+      const items = (escala || []).filter(i => i.tipo !== 'seccao');
+      const activeItem = items.find(i => i.status === 'atual');
+      const nextItem = (() => {
+        const allItems = escala || [];
+        const allIdx = allItems.findIndex(i => i.status === 'atual');
+        if (allIdx === -1) {
+          const first = allItems.find(i => i.tipo !== 'seccao');
+          return first ? first.titulo : null;
+        }
+        for (let i = allIdx + 1; i < allItems.length; i++) {
+          if (allItems[i].tipo !== 'seccao') return allItems[i].titulo;
+        }
+        return null;
+      })();
+
+      if (activeItem) {
+        // Live mode
+        elOnAirBadge.className = 'on-air-badge live';
+        elOnAirDot.className = 'on-air-dot';
+        elOnAirLabel.textContent = 'NO AR';
+        elCurrentTitle.className = 'current-item-title';
+        elCurrentTitle.textContent = activeItem.titulo;
+        elCurrentSub.textContent = activeItem.musica || activeItem.observacoes || '';
+      } else {
+        elOnAirBadge.className = 'on-air-badge idle';
+        elOnAirDot.className = 'on-air-dot idle';
+        elOnAirLabel.textContent = 'AGUARDAR';
+        elCurrentTitle.className = 'current-item-title idle';
+        elCurrentTitle.textContent = 'Nenhum item activo';
+        elCurrentSub.textContent = '';
+      }
+
+      elNextTitle.textContent = nextItem || '(fim da escala)';
+
+      // Progress dots (max 15 to avoid overflow)
+      const dotsCount = Math.min(items.length, 15);
+      const activeRealIdx = items.findIndex(i => i.status === 'atual');
+      const doneUpTo = items.filter(i => i.status === 'concluido').length;
+
+      elProgressDots.innerHTML = '';
+      if (dotsCount > 1) {
+        items.slice(0, dotsCount).forEach((item, idx) => {
+          const dot = document.createElement('div');
+          dot.className = 'progress-dot';
+          if (item.status === 'atual') dot.classList.add('current');
+          else if (item.status === 'concluido') dot.classList.add('done');
+          else dot.classList.add('pending');
+          elProgressDots.appendChild(dot);
+        });
+      }
+
+      // Status text
+      const doneItems = items.filter(i => i.status === 'concluido').length;
+      const totalItems = items.length;
+      if (totalItems > 0) {
+        elStatusText.textContent = `${doneItems} / ${totalItems} concluídos`;
+      } else {
+        elStatusText.textContent = 'Escala vazia';
+      }
+
+      // Button states
+      const hasActive = !!activeItem;
+      const activeIdx = (escala || []).findIndex(i => i.status === 'atual');
+      let hasPrev = false;
+      let hasNext = true; // always allow next to start
+
+      if (activeIdx !== -1) {
+        // Can go prev?
+        for (let i = activeIdx - 1; i >= 0; i--) {
+          if ((escala || [])[i].tipo !== 'seccao') { hasPrev = true; break; }
+        }
+        // Can go next?
+        hasNext = false;
+        for (let i = activeIdx + 1; i < (escala || []).length; i++) {
+          if ((escala || [])[i].tipo !== 'seccao') { hasNext = true; break; }
+        }
+      }
+
+      btnPrev.disabled = !hasPrev;
+      btnNext.disabled = !hasNext;
+    }
+
+    // IPC communication
+    btnNext.addEventListener('click', () => {
+      window.controllerAPI.sendCommand('next');
+    });
+
+    btnPrev.addEventListener('click', () => {
+      window.controllerAPI.sendCommand('previous');
+    });
+
+    // Listen for state updates from main process
+    window.controllerAPI.onStateUpdate((state) => {
+      renderState(state);
+    });
+
+    // Request initial state on load
+    window.controllerAPI.requestState();
+  </script>
+</body>
+</html>
