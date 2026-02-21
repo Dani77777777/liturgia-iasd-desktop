@@ -1,6 +1,6 @@
 {
     "name": "liturgia-iasd-desktop",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Desktop wrapper for Liturgia IASD with multi-window projection support",
     "main": "dist/main.js",
     "scripts": {
