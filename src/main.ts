@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, screen, MenuItemConstructorOptions, shell, Display, dialog, nativeImage, autoUpdater } from 'electron';
+import { app, BrowserWindow, Menu, screen, MenuItemConstructorOptions, shell, Display, dialog, nativeImage, autoUpdater, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
@@ -22,10 +22,17 @@ const AUTO_UPDATE_ENABLED = !USE_DEV && process.platform === 'win32'; // Only on
 
 let mainWindow: BrowserWindow | null = null;
 let presentationWindow: BrowserWindow | null = null;
+let controllerWindow: BrowserWindow | null = null;
 let store: any; // e.g. let store = new Store(); (initialized dynamically)
 
 let supabaseClient: any = null;
 let currentEvent: { id: string, data: string, titulo: string } | null = null;
+
+// Realtime subscription handle for the controller
+let controllerSubscription: any = null;
+
+// Latest escala state for the controller
+let currentEscala: any[] = [];
 
 // Paths
 const WEB_APP_PATH = path.join(__dirname, '..', '..', 'liturgia-iasd');
@@ -321,6 +328,16 @@ function createMainWindow() {
       presentationWindow.close();
       presentationWindow = null;
     }
+    // Close controller window when main window closes
+    if (controllerWindow && !controllerWindow.isDestroyed()) {
+      controllerWindow.close();
+      controllerWindow = null;
+    }
+    // Unsubscribe from realtime
+    if (controllerSubscription) {
+      controllerSubscription.unsubscribe();
+      controllerSubscription = null;
+    }
     mainWindow = null;
   });
   
@@ -446,6 +463,179 @@ function createPresentationWindow(displayId: number, targetUrl?: string) {
   updateMenu(); // Update menu to enable close button
 }
 
+// ============================================
+// CONTROLLER WINDOW
+// ============================================
+
+function createControllerWindow() {
+  if (controllerWindow && !controllerWindow.isDestroyed()) {
+    controllerWindow.focus();
+    return;
+  }
+
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
+  const appIcon = nativeImage.createFromPath(iconPath);
+
+  controllerWindow = new BrowserWindow({
+    width: 280,
+    height: 380,
+    minWidth: 240,
+    minHeight: 300,
+    maxWidth: 400,
+    title: 'Controlo do Culto',
+    alwaysOnTop: false, // Set properly below with level
+    resizable: true,
+    frame: false,
+    transparent: false,
+    skipTaskbar: false,
+    icon: appIcon,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-controller.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  // Use 'screen-saver' level to stay above fullscreen apps (e.g. YouTube videos)
+  controllerWindow.setAlwaysOnTop(true, 'screen-saver');
+
+  // Resolve controller.html path: compiled (dist/) in production, src/ in dev
+  const controllerHtmlDist = path.join(__dirname, 'controller.html');
+  const controllerHtmlSrc = path.join(__dirname, '..', 'src', 'controller.html');
+  const controllerHtmlPath = fs.existsSync(controllerHtmlDist) ? controllerHtmlDist : controllerHtmlSrc;
+  controllerWindow.loadFile(controllerHtmlPath);
+
+  controllerWindow.on('closed', () => {
+    controllerWindow = null;
+    // Stop realtime subscription when controller closes
+    if (controllerSubscription) {
+      controllerSubscription.unsubscribe();
+      controllerSubscription = null;
+    }
+    updateMenu();
+  });
+
+  // Start syncing escala from Supabase once we have an event
+  startControllerSync();
+  updateMenu();
+}
+
+async function fetchEscalaForController(eventId: string) {
+  if (!supabaseClient) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('dbEscalas')
+      .select('id, titulo, tipo, status, musica, observacoes, ordem')
+      .eq('evento_id', eventId)
+      .order('ordem');
+    if (error) throw error;
+    currentEscala = data || [];
+    pushStateToController();
+  } catch (e) {
+    console.error('Error fetching escala for controller:', e);
+  }
+}
+
+function pushStateToController() {
+  if (!controllerWindow || controllerWindow.isDestroyed()) return;
+  const state = {
+    escala: currentEscala,
+    eventTitle: currentEvent?.titulo || '',
+  };
+  controllerWindow.webContents.send('controller-state-update', state);
+}
+
+function startControllerSync() {
+  if (!supabaseClient || !currentEvent) return;
+
+  // Fetch initial data immediately
+  fetchEscalaForController(currentEvent.id);
+
+  // Clear any previous polling interval
+  if (controllerSubscription) {
+    clearInterval(controllerSubscription);
+    controllerSubscription = null;
+  }
+
+  const eventId = currentEvent.id;
+
+  // Poll every 2 seconds for state changes (more reliable than WS in main process)
+  controllerSubscription = setInterval(async () => {
+    if (!controllerWindow || controllerWindow.isDestroyed()) {
+      clearInterval(controllerSubscription);
+      controllerSubscription = null;
+      return;
+    }
+    await fetchEscalaForController(eventId);
+  }, 2000);
+
+  console.log('Controller polling sync started for event:', currentEvent.id);
+}
+
+// IPC: Controller sends navigation commands — handled directly via Supabase
+ipcMain.on('controller-command', async (_event, command: 'next' | 'previous') => {
+  if (!supabaseClient || !currentEvent || currentEscala.length === 0) return;
+
+  const escala = currentEscala;
+  const currentIndex = escala.findIndex(i => i.status === 'atual');
+
+  let targetIndex = -1;
+
+  if (command === 'next') {
+    if (currentIndex === -1) {
+      // Nothing active yet — start from first non-section item
+      targetIndex = escala.findIndex(i => i.tipo !== 'seccao');
+    } else {
+      for (let i = currentIndex + 1; i < escala.length; i++) {
+        if (escala[i].tipo !== 'seccao') { targetIndex = i; break; }
+      }
+    }
+  } else if (command === 'previous') {
+    if (currentIndex === -1) return;
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      if (escala[i].tipo !== 'seccao') { targetIndex = i; break; }
+    }
+  }
+
+  try {
+    // Mark current item as concluido
+    await supabaseClient
+      .from('dbEscalas')
+      .update({ status: 'concluido' })
+      .eq('evento_id', currentEvent.id)
+      .eq('status', 'atual');
+
+    if (targetIndex !== -1) {
+      // Set new item as atual
+      await supabaseClient
+        .from('dbEscalas')
+        .update({ status: 'atual' })
+        .eq('id', escala[targetIndex].id);
+    } else if (command === 'previous' && currentIndex !== -1) {
+      // Going back past the first item — reset to no active item
+      // (already marked as concluido above, nothing more needed)
+    }
+
+    // Refresh our local cache
+    if (currentEvent) await fetchEscalaForController(currentEvent.id);
+  } catch (e) {
+    console.error('Error executing navigation command:', e);
+  }
+});
+
+// IPC: Controller requests current state on load
+ipcMain.on('controller-request-state', () => {
+  if (currentEvent) {
+    fetchEscalaForController(currentEvent.id);
+  } else {
+    pushStateToController();
+  }
+});
+
+// ============================================
+// END CONTROLLER WINDOW
+// ============================================
+
 /**
  * Fetch event details from Supabase
  */
@@ -471,6 +661,10 @@ async function fetchEventDetails(id: string) {
         titulo: data.titulo
       };
       updateMenu();
+      // If the controller window is open, restart sync for new event
+      if (controllerWindow && !controllerWindow.isDestroyed()) {
+        startControllerSync();
+      }
     }
   } catch (err) {
     console.error('Error fetching event details:', err);
@@ -560,6 +754,17 @@ function updateMenu() {
         {
           label: `Abrir PowerPoint (${new Date(currentEvent.data).toLocaleDateString('pt-PT')})`,
           click: () => handlePowerPointAction()
+        },
+        { type: 'separator' as const },
+        {
+          label: controllerWindow && !controllerWindow.isDestroyed() ? 'Fechar Janela de Controlo' : 'Abrir Janela de Controlo',
+          click: () => {
+            if (controllerWindow && !controllerWindow.isDestroyed()) {
+              controllerWindow.close();
+            } else {
+              createControllerWindow();
+            }
+          }
         }
       ]
     } as MenuItemConstructorOptions] : []),
