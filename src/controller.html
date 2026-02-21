@@ -254,11 +254,14 @@
     /* Progress dots */
     .progress {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: center;
       gap: 4px;
-      padding: 2px 0;
+      padding: 2px 4px;
       flex-shrink: 0;
+      max-height: 28px;
+      overflow: hidden;
     }
 
     .progress-dot {
@@ -267,6 +270,18 @@
       border-radius: 50%;
       background: var(--border);
       transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .progress.many .progress-dot {
+      width: 4px;
+      height: 4px;
+      gap: 3px;
+    }
+
+    .progress.many {
+      gap: 3px;
+      max-height: 36px;
     }
 
     .progress-dot.done {
@@ -276,8 +291,12 @@
 
     .progress-dot.current {
       background: var(--red);
-      width: 14px;
+      width: 12px;
       border-radius: 3px;
+    }
+
+    .progress.many .progress-dot.current {
+      width: 10px;
     }
 
     .progress-dot.pending {
@@ -396,14 +415,19 @@
 
       elNextTitle.textContent = nextItem || '(fim da escala)';
 
-      // Progress dots (max 15 to avoid overflow)
-      const dotsCount = Math.min(items.length, 15);
-      const activeRealIdx = items.findIndex(i => i.status === 'atual');
-      const doneUpTo = items.filter(i => i.status === 'concluido').length;
+      // Progress dots — show all items, compact if many
+      const dotsCount = items.length;
 
       elProgressDots.innerHTML = '';
+      // Add 'many' class when more than 15 items to use smaller dots + wrap
+      if (dotsCount > 15) {
+        elProgressDots.classList.add('many');
+      } else {
+        elProgressDots.classList.remove('many');
+      }
+
       if (dotsCount > 1) {
-        items.slice(0, dotsCount).forEach((item, idx) => {
+        items.forEach((item) => {
           const dot = document.createElement('div');
           dot.className = 'progress-dot';
           if (item.status === 'atual') dot.classList.add('current');

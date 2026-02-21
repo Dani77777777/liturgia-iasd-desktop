@@ -483,9 +483,9 @@ function createMainWindow() {
       controllerWindow.close();
       controllerWindow = null;
     }
-    // Unsubscribe from realtime
+    // Stop polling interval for controller sync
     if (controllerSubscription) {
-      controllerSubscription.unsubscribe();
+      clearInterval(controllerSubscription);
       controllerSubscription = null;
     }
     mainWindow = null;
@@ -657,9 +657,9 @@ function createControllerWindow() {
 
   controllerWindow.on('closed', () => {
     controllerWindow = null;
-    // Stop realtime subscription when controller closes
+    // Stop polling interval when controller closes
     if (controllerSubscription) {
-      controllerSubscription.unsubscribe();
+      clearInterval(controllerSubscription);
       controllerSubscription = null;
     }
     updateMenu();
