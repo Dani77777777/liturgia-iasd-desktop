@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, screen, MenuItemConstructorOptions, shell, Display, dialog, nativeImage, autoUpdater } from 'electron';
+import { app, BrowserWindow, Menu, screen, MenuItemConstructorOptions, shell, Display, dialog, nativeImage, autoUpdater, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
@@ -26,6 +26,10 @@ let store: any; // e.g. let store = new Store(); (initialized dynamically)
 
 let supabaseClient: any = null;
 let currentEvent: { id: string, data: string, titulo: string } | null = null;
+let isOfflineMode = false;
+
+// Helpers
+const getOfflinePath = () => path.join(__dirname, 'offline', 'index.html');
 
 // Paths
 const WEB_APP_PATH = path.join(__dirname, '..', '..', 'liturgia-iasd');
@@ -264,6 +268,118 @@ function checkForUpdatesManually() {
 // END AUTO-UPDATE SYSTEM
 // ============================================
 
+/**
+ * Sync all necessary data for offline mode.
+ * @param silent - If true, no dialogs are shown (for background/auto sync)
+ */
+async function syncAllData(silent = false) {
+  if (!supabaseClient) {
+    console.error('Supabase client not initialized');
+    return { success: false, error: 'Supabase não inicializado' };
+  }
+
+  try {
+    console.log(`Starting ${silent ? 'silent ' : ''}sync for offline use...`);
+
+    // 1. Fetch Events
+    const { data: eventos, error: evError } = await supabaseClient
+      .from('dbEventos')
+      .select('*')
+      .order('data', { ascending: true });
+    if (evError) throw evError;
+
+    // 2. Fetch Members
+    const { data: membros, error: memError } = await supabaseClient
+      .from('dbMembros')
+      .select('*')
+      .order('nome');
+    if (memError) throw memError;
+
+    // 3. Fetch Functions
+    const { data: funcoes, error: funcError } = await supabaseClient
+      .from('dbFuncoes')
+      .select('*');
+    if (funcError) throw funcError;
+
+    // 4. Fetch Schedules (all)
+    const { data: escalas, error: escError } = await supabaseClient
+      .from('dbEscalas')
+      .select('*');
+    if (escError) throw escError;
+
+    // 5. Fetch Event Roles (all)
+    const { data: cargos, error: carError } = await supabaseClient
+      .from('dbEventoCargos')
+      .select('*');
+    if (carError) throw carError;
+
+    const offlineData = {
+      lastSync: new Date().toISOString(),
+      eventos,
+      membros,
+      funcoes,
+      escalas,
+      cargos
+    };
+
+    if (store) {
+      store.set('offlineData', offlineData);
+      console.log('Sync complete! Data saved to:', store.path);
+    }
+
+    if (!silent) {
+      if (mainWindow) mainWindow.webContents.send('sync-status', 'Sincronização concluída com sucesso!');
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Sincronização',
+        message: 'Dados sincronizados com sucesso para uso offline.',
+        buttons: ['OK']
+      });
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Sync error:', err);
+    if (!silent) {
+      if (mainWindow) mainWindow.webContents.send('sync-status', `Erro: ${err.message}`);
+      dialog.showErrorBox('Erro de Sincronização', `Não foi possível baixar os dados: ${err.message}`);
+    }
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Auto sync: runs silently on startup if online.
+ * Waits a few seconds to let the app settle first.
+ */
+function scheduleSilentSync() {
+  setTimeout(async () => {
+    console.log('Auto-sync: checking connectivity...');
+    try {
+      // Quick connectivity check via a lightweight HEAD request
+      const https = await import('https');
+      const req = https.request({ host: 'supabase.com', method: 'HEAD', timeout: 4000 }, () => {
+        console.log('Auto-sync: online, syncing silently...');
+        syncAllData(true);
+      });
+      req.on('error', () => console.log('Auto-sync: offline, skipping sync.'));
+      req.on('timeout', () => { req.destroy(); console.log('Auto-sync: timeout, skipping.'); });
+      req.end();
+    } catch {
+      console.log('Auto-sync: could not check connectivity.');
+    }
+  }, 5000); // wait 5s after startup
+}
+
+// Register IPC handlers
+ipcMain.handle('get-offline-data', () => {
+  return store ? store.get('offlineData') : null;
+});
+
+ipcMain.handle('sync-data', async () => {
+  return await syncAllData();
+});
+
 
 function createMainWindow() {
   if (mainWindow) {
@@ -291,7 +407,41 @@ function createMainWindow() {
 
   // Load the Control Panel (Agenda with live events view)
   mainWindow.loadURL(`${BASE_URL}/liturgia/agenda?view=hoje`).catch((e: unknown) => {
-    console.error('Failed to load URL:', e);
+    console.error('Initial load failed:', e);
+    switchToOfflineMode();
+  });
+
+  // Function to switch to offline mode safely
+  const switchToOfflineMode = () => {
+    if (isOfflineMode) return;
+    console.log('Switching to Offline Mode...');
+    isOfflineMode = true;
+    mainWindow?.loadFile(getOfflinePath());
+    updateMenu();
+  };
+
+  // Handle network failure during navigation
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame) return; // Only care about main frame
+
+    console.log(`Failed to load ${validatedURL}: ${errorDescription} (${errorCode})`);
+    
+    // Most common network errors in Electron/Chromium (-1xx codes)
+    if (errorCode < -100 && errorCode > -200) {
+        switchToOfflineMode();
+    }
+  });
+
+  // Handle navigation to help sync back if online
+  mainWindow.webContents.on('did-finish-load', () => {
+    const url = mainWindow?.webContents.getURL() || '';
+    if (url.includes('liturgia-iasd.vercel.app') || url.includes('localhost:3000')) {
+        if (isOfflineMode) {
+            console.log('Back online! Disabling offline mode flag.');
+            isOfflineMode = false;
+            updateMenu();
+        }
+    }
   });
 
   // Monitor URL changes to detect if we are in an event/schedule page
@@ -601,6 +751,24 @@ function updateMenu() {
        ]
     },
     {
+      label: 'Liturgia',
+      submenu: [
+        {
+          label: 'Sincronizar Tudo para Offline',
+          click: () => syncAllData()
+        },
+        {
+            label: 'Voltar para Online (Vercel)',
+            visible: isOfflineMode,
+            click: () => {
+                isOfflineMode = false;
+                mainWindow?.loadURL(`${BASE_URL}/liturgia/agenda?view=hoje`);
+                updateMenu();
+            }
+        }
+      ]
+    },
+    {
       label: 'Ajuda',
       submenu: [
         {
@@ -648,6 +816,7 @@ app.whenReady().then(async () => {
 
   // Initialize auto-updater
   setupAutoUpdater();
+  scheduleSilentSync(); // Add silent sync call here
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

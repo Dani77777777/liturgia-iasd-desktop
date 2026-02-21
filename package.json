@@ -4,7 +4,7 @@
     "description": "Desktop wrapper for Liturgia IASD with multi-window projection support",
     "main": "dist/main.js",
     "scripts": {
-        "build": "tsc",
+        "build": "tsc && xcopy /E /I /Y \"src\\offline\" \"dist\\offline\\\"",
         "start": "npm run build && electron .",
         "dev": "concurrently -k \"npm run dev --prefix ../liturgia-iasd\" \"wait-on http://localhost:3000 && npm start\"",
         "pack": "npm run build && electron-forge package",

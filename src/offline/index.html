@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liturgia IASD - Modo Offline</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f9fafb;
+            color: #111827;
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        .container { max-width: 1024px; margin: 0 auto; padding: 32px 16px; }
+
+        /* ---- Offline Banner ---- */
+        #offline-banner {
+            display: none;
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .banner-info { display: flex; align-items: center; gap: 12px; }
+        .banner-icon { color: #d97706; flex-shrink: 0; }
+        .banner-title { font-size: 15px; font-weight: 700; color: #92400e; margin-bottom: 2px; }
+        .banner-sub { font-size: 13px; color: #b45309; }
+        .btn-reconnect {
+            padding: 8px 16px;
+            background: #fde68a;
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #78350f;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .btn-reconnect:hover { background: #fcd34d; }
+
+        /* ---- Headings ---- */
+        h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+        h2 { font-size: 22px; font-weight: 700; margin-bottom: 16px; }
+        .page-subtitle { font-size: 16px; color: #6b7280; margin-bottom: 32px; }
+
+        /* ---- Cards ---- */
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .card:hover { border-color: #6366f1; box-shadow: 0 4px 12px rgba(99,102,241,0.12); }
+
+        /* ---- Event Card ---- */
+        .event-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .event-meta { color: #6b7280; font-size: 13px; margin-bottom: 4px; text-transform: capitalize; }
+        .event-title { font-size: 18px; font-weight: 700; }
+        .event-card:hover .event-title { color: #6366f1; }
+        .chevron { color: #d1d5db; font-size: 24px; font-weight: 300; transition: color 0.15s; }
+        .event-card:hover .chevron { color: #6366f1; }
+
+        /* ---- Section Headers ---- */
+        .section-header {
+            margin-top: 40px;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e7ff;
+        }
+        .section-header h2 { color: #6366f1; margin-bottom: 0; }
+
+        /* ---- Staff Grid ---- */
+        .staff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+        .staff-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; }
+        .staff-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+        .staff-name { font-size: 15px; font-weight: 600; }
+        .staff-name-crossed { text-decoration: line-through; color: #9ca3af; font-size: 12px; }
+        .staff-name-sub { color: #6366f1; font-weight: 700; font-size: 15px; }
+        .staff-unset { color: #9ca3af; font-style: italic; font-weight: 400; }
+
+        .staff-divider { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0 32px; }
+
+        /* ---- Timeline Items ---- */
+        .item-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-left: 8px solid #d1d5db;
+            border-radius: 0 14px 14px 0;
+            padding: 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .item-card.musica { border-left-color: #3b82f6; }
+        .item-card.responsabilidade { border-left-color: #22c55e; }
+        .item-card.fixo { border-left-color: #d1d5db; }
+
+        .item-number {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: #f3f4f6;
+            color: #4b5563;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+        .item-icon { margin-top: 8px; color: #d1d5db; }
+        .item-icon.musica { color: #93c5fd; }
+        .item-icon.responsabilidade { color: #86efac; }
+
+        .item-body { flex: 1; }
+        .item-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+        .item-music { font-size: 20px; font-weight: 600; color: #2563eb; }
+        .item-music.empty { color: #9ca3af; font-style: italic; font-size: 15px; font-weight: 400; }
+        .item-person { font-size: 18px; font-weight: 600; color: #16a34a; }
+        .item-person.empty { color: #9ca3af; font-style: italic; font-size: 14px; font-weight: 400; }
+        .item-person-crossed { text-decoration: line-through; color: #9ca3af; font-size: 13px; display: block; }
+        .item-person-sub { font-size: 18px; font-weight: 700; color: #16a34a; display: block; }
+        .item-obs { margin-top: 8px; font-size: 13px; color: #6b7280; background: #f9fafb; padding: 6px 10px; border-radius: 6px; font-style: italic; }
+
+        /* ---- Loading / Empty ---- */
+        #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
+        .spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 18px; font-weight: 500; color: #6b7280; }
+
+        .empty-box { text-align: center; padding: 60px 40px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; max-width: 480px; margin: 80px auto; }
+        .empty-icon { font-size: 64px; margin-bottom: 16px; }
+        .empty-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+        .empty-text { color: #6b7280; font-size: 15px; line-height: 1.6; margin-bottom: 24px; }
+        .btn-primary { display: inline-block; padding: 12px 28px; background: #6366f1; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+        .btn-primary:hover { background: #4f46e5; }
+
+        /* ---- Back Button ---- */
+        .btn-back { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: transparent; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; font-weight: 600; color: #374151; cursor: pointer; margin-bottom: 24px; transition: all 0.15s; }
+        .btn-back:hover { background: #f3f4f6; border-color: #9ca3af; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Loading State -->
+        <div id="loading">
+            <div class="spinner"></div>
+            <p class="loading-text">A carregar modo offline...</p>
+        </div>
+
+        <!-- Offline Banner -->
+        <div id="offline-banner">
+            <div class="banner-info">
+                <div class="banner-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                </div>
+                <div>
+                    <div class="banner-title">Modo Offline Ativo</div>
+                    <div class="banner-sub">A exibir dados da última sincronização: <strong id="last-sync-date">...</strong></div>
+                </div>
+            </div>
+            <button class="btn-reconnect" onclick="window.location.reload()">Tentar Ligar</button>
+        </div>
+
+        <!-- Agenda View -->
+        <div id="agenda-view" style="display:none;">
+            <h1>Agenda Offline</h1>
+            <p class="page-subtitle">Selecione um culto para ver a liturgia detalhada.</p>
+            <div id="events-list"></div>
+        </div>
+
+        <!-- Event View -->
+        <div id="event-view" style="display:none;">
+            <button class="btn-back" onclick="showAgenda()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                Voltar à Agenda
+            </button>
+            <h1 id="event-title">Culto</h1>
+            <p class="page-subtitle" id="event-date"></p>
+            <div id="event-content"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
