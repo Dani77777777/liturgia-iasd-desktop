@@ -675,7 +675,7 @@ async function fetchEscalaForController(eventId: string) {
   try {
     const { data, error } = await supabaseClient
       .from('dbEscalas')
-      .select('id, titulo, tipo, status, musica, observacoes, ordem')
+      .select('id, titulo, tipo, status, musica, observacoes, ordem, hora_inicio, hora_fim_fixa, duracao')
       .eq('evento_id', eventId)
       .order('ordem');
     if (error) throw error;
@@ -756,10 +756,11 @@ ipcMain.on('controller-command', async (_event, command: 'next' | 'previous') =>
       .eq('status', 'atual');
 
     if (targetIndex !== -1) {
-      // Set new item as atual
+      // Set new item as atual and record the real start time
+      // (mirrors the web page so "Início" / fim aproximado get registered)
       await supabaseClient
         .from('dbEscalas')
-        .update({ status: 'atual' })
+        .update({ status: 'atual', hora_inicio: new Date().toISOString() })
         .eq('id', escala[targetIndex].id);
     } else if (command === 'previous' && currentIndex !== -1) {
       // Going back past the first item — reset to no active item
@@ -822,17 +823,20 @@ async function fetchEventDetails(id: string) {
 }
 
 /**
- * Logic to handle PowerPoint opening/creation
+ * Resolve the external drive and the day's folder/file paths for the current event.
+ * Detects the external drive (must contain "Cultos" and "Modelo" at the root),
+ * builds the day directory (Cultos/ano/mês/dia) and the pptx file path.
+ * Shows an error dialog and returns null if the drive isn't found.
  */
-async function handlePowerPointAction() {
-  if (!currentEvent) return;
+function resolveCultoPaths(): { targetDir: string; finalFilePath: string; modelPath: string } | null {
+  if (!currentEvent) return null;
 
   const eventDate = new Date(currentEvent.data);
   const year = eventDate.getFullYear().toString();
   const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const monthName = months[eventDate.getMonth()];
   const day = eventDate.getDate().toString();
-  
+
   const dd = day.padStart(2, '0');
   const mm = (eventDate.getMonth() + 1).toString().padStart(2, '0');
   const fileName = `${dd}-${mm}-${year}.pptx`;
@@ -852,17 +856,29 @@ async function handlePowerPointAction() {
 
   if (!targetDrive) {
     dialog.showErrorBox('Erro', 'Disco externo não encontrado. Certifique-se que o disco contém as pastas "Cultos" e "Modelo" na raiz.');
-    return;
+    return null;
   }
 
-  const modelPath = path.join(targetDrive, 'Modelo', 'Apresentação para o Culto - Modelo.pptx');
+  const targetDir = path.join(targetDrive, 'Cultos', year, monthName, day);
+  return {
+    targetDir,
+    finalFilePath: path.join(targetDir, fileName),
+    modelPath: path.join(targetDrive, 'Modelo', 'Apresentação para o Culto - Modelo.pptx'),
+  };
+}
+
+/**
+ * Logic to handle PowerPoint opening/creation
+ */
+async function handlePowerPointAction() {
+  const paths = resolveCultoPaths();
+  if (!paths) return;
+  const { targetDir, finalFilePath, modelPath } = paths;
+
   if (!fs.existsSync(modelPath)) {
     dialog.showErrorBox('Erro', `Ficheiro modelo não encontrado em: ${modelPath}`);
     return;
   }
-
-  const targetDir = path.join(targetDrive, 'Cultos', year, monthName, day);
-  const finalFilePath = path.join(targetDir, fileName);
 
   try {
     if (!fs.existsSync(targetDir)) {
@@ -886,6 +902,31 @@ async function handlePowerPointAction() {
   }
 }
 
+/**
+ * Open the day's folder (Cultos/ano/mês/dia) in the file explorer,
+ * creating it if it doesn't exist yet.
+ */
+async function handleOpenDayFolder() {
+  const paths = resolveCultoPaths();
+  if (!paths) return;
+  const { targetDir } = paths;
+
+  try {
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    shell.openPath(targetDir).then((err) => {
+      if (err) {
+        dialog.showErrorBox('Erro ao abrir pasta', err);
+      }
+    });
+  } catch (err: any) {
+    console.error('Error in handleOpenDayFolder:', err);
+    dialog.showErrorBox('Erro de Ficheiro', `Não foi possível abrir a pasta: ${err.message}`);
+  }
+}
+
 function updateMenu() {
   const displays = screen.getAllDisplays();
   
@@ -904,6 +945,10 @@ function updateMenu() {
         {
           label: `Abrir PowerPoint (${new Date(currentEvent.data).toLocaleDateString('pt-PT')})`,
           click: () => handlePowerPointAction()
+        },
+        {
+          label: 'Abrir Pasta do Dia',
+          click: () => handleOpenDayFolder()
         },
         { type: 'separator' as const },
         {

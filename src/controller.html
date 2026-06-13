@@ -16,6 +16,8 @@
       --primary-hover: #4f52d4;
       --red: #ef4444;
       --green: #22c55e;
+      --orange: #f59e0b;
+      --blue: #60a5fa;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -159,9 +161,55 @@
     .current-item-sub {
       font-size: 12px;
       color: var(--muted);
+      line-height: 1.35;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      line-clamp: 5;
+      -webkit-box-orient: vertical;
+    }
+
+    /* Timing block (end time + countdown) */
+    .timing {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 8px;
+    }
+
+    .timing.hidden { display: none; }
+
+    .timing-end {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .timing-end-val {
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--text);
+    }
+
+    .timing-countdown {
+      font-size: 30px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      color: var(--blue);
+    }
+
+    .timing-countdown.blink {
+      animation: pulse 1s infinite;
     }
 
     /* Next item preview */
@@ -332,6 +380,15 @@
       </div>
       <div class="current-item-title idle" id="current-title">Nenhum item activo</div>
       <div class="current-item-sub" id="current-sub"></div>
+
+      <!-- Timing: end time + countdown -->
+      <div class="timing hidden" id="timing">
+        <div class="timing-end">
+          <span>Termina</span>
+          <span class="timing-end-val" id="timing-end-val">—</span>
+        </div>
+        <div class="timing-countdown" id="timing-countdown">--:--</div>
+      </div>
     </div>
 
     <!-- Next Item Preview -->
@@ -372,6 +429,73 @@
     const elStatusText = document.getElementById('status-text');
     const btnPrev = document.getElementById('btn-prev');
     const btnNext = document.getElementById('btn-next');
+    const elTiming = document.getElementById('timing');
+    const elTimingEndVal = document.getElementById('timing-end-val');
+    const elTimingCountdown = document.getElementById('timing-countdown');
+
+    // --- Timing helpers (mirror the presentation page) ---
+    function pad(n) { return n.toString().padStart(2, '0'); }
+
+    // Returns { fimDate, restante } in seconds, or null if no timing info
+    function computeTiming(item) {
+      if (!item) return null;
+      const now = new Date();
+      let fimDate = null;
+      if (item.hora_fim_fixa) {
+        const [h, m] = item.hora_fim_fixa.split(':').map(Number);
+        fimDate = new Date(now);
+        fimDate.setHours(h, m, 0, 0);
+      } else if (item.duracao && item.hora_inicio) {
+        fimDate = new Date(new Date(item.hora_inicio).getTime() + item.duracao * 60000);
+      } else {
+        return null;
+      }
+      const restante = Math.round((fimDate.getTime() - now.getTime()) / 1000);
+      return { fimDate, restante };
+    }
+
+    function formatCountdown(segundos) {
+      const abs = Math.abs(segundos);
+      const m = pad(Math.floor(abs / 60));
+      const s = pad(abs % 60);
+      return segundos < 0 ? `+${m}:${s}` : `${m}:${s}`;
+    }
+
+    function formatHora(date) {
+      return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    // Returns { color, blink } following: passou→vermelho a piscar,
+    // ≤1min→vermelho, ≤10min→laranja, resto→azul
+    function countdownStyle(restante) {
+      if (restante < 0) return { color: 'var(--red)', blink: true };
+      if (restante <= 60) return { color: 'var(--red)', blink: false };
+      if (restante <= 600) return { color: 'var(--orange)', blink: false };
+      return { color: 'var(--blue)', blink: false };
+    }
+
+    // Recomputed every second from the latest state
+    function updateTiming() {
+      const escala = currentState.escala || [];
+      const activeItem = escala.find(i => i.status === 'atual');
+      const timing = computeTiming(activeItem);
+
+      if (!timing) {
+        elTiming.classList.add('hidden');
+        return;
+      }
+
+      elTiming.classList.remove('hidden');
+      elTimingEndVal.textContent = formatHora(timing.fimDate);
+      elTimingCountdown.textContent = formatCountdown(timing.restante);
+
+      const style = countdownStyle(timing.restante);
+      elTimingCountdown.style.color = style.color;
+      elTimingEndVal.style.color = style.color;
+      elTimingCountdown.classList.toggle('blink', style.blink);
+    }
+
+    setInterval(updateTiming, 1000);
 
     function renderState(state) {
       currentState = state;
@@ -447,25 +571,23 @@
       }
 
       // Button states
-      const hasActive = !!activeItem;
       const activeIdx = (escala || []).findIndex(i => i.status === 'atual');
       let hasPrev = false;
-      let hasNext = true; // always allow next to start
 
       if (activeIdx !== -1) {
         // Can go prev?
         for (let i = activeIdx - 1; i >= 0; i--) {
           if ((escala || [])[i].tipo !== 'seccao') { hasPrev = true; break; }
         }
-        // Can go next?
-        hasNext = false;
-        for (let i = activeIdx + 1; i < (escala || []).length; i++) {
-          if ((escala || [])[i].tipo !== 'seccao') { hasNext = true; break; }
-        }
       }
 
       btnPrev.disabled = !hasPrev;
-      btnNext.disabled = !hasNext;
+      // "Próximo" stays enabled as long as there are items: it starts when idle,
+      // advances through the list, and on the last item it concludes/unmarks it.
+      btnNext.disabled = items.length === 0;
+
+      // Refresh end-time / countdown display immediately with new state
+      updateTiming();
     }
 
     // IPC communication
