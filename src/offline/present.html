@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;" />
+  <title>Liturgia IASD - Projeção</title>
+  <style>
+    :root { --fundo: #000; --texto: #fff; --destaque: #facc15; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--fundo); color: var(--texto);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 4vh 4vw; cursor: none; user-select: none;
+    }
+    .mono { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-weight: 900; letter-spacing: 0.08em; }
+    .fraco { opacity: 0.55; }
+    #logo-canto { position: absolute; top: 4vh; left: 3vw; height: 7vh; display: none; }
+    #logo-espera { height: 18vh; margin-bottom: 3vh; display: none; }
+
+    #espera h1 { font-size: 6vw; font-weight: 900; letter-spacing: -0.02em; opacity: 0.9; margin-bottom: 3vh; }
+    #espera .relogio { font-size: 8vw; }
+    #espera .legenda { font-size: 2vw; text-transform: uppercase; letter-spacing: 0.2em; margin-top: 3vh; }
+    #espera .mensagem { font-size: 2.6vw; opacity: 0.8; margin-top: 3vh; white-space: pre-line; max-width: 80vw; }
+
+    #ativo { display: none; flex-direction: column; align-items: center; gap: 2.5vh; max-width: 90vw; }
+    #ativo .relogio { font-size: 3.5vw; opacity: 0.5; }
+    #contagem { font-size: 7vw; }
+    #contagem.piscar { animation: piscar 1s infinite; }
+    @keyframes piscar { 50% { opacity: 0.35; } }
+    .agora { display: inline-block; border: 2px solid var(--destaque); color: var(--destaque); border-radius: 999px; padding: 0.3vh 1.2vw; font-size: 1.1vw; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; }
+    #titulo { font-size: 6.5vw; font-weight: 900; line-height: 1.05; }
+    #detalhe { font-size: 3.8vw; font-weight: 300; opacity: 0.85; white-space: pre-line; }
+    #obs { font-size: 2.4vw; font-style: italic; opacity: 0.8; border: 1px solid rgba(127,127,127,0.3); border-radius: 1vw; padding: 2vh 2vw; max-width: 70vw; display: none; }
+    #tempos { font-size: 2vw; opacity: 0.6; }
+
+    #seguinte { position: absolute; right: 3vw; bottom: 5vh; text-align: right; opacity: 0.6; max-width: 35vw; display: none; }
+    #seguinte .rotulo { font-size: 1vw; text-transform: uppercase; letter-spacing: 0.2em; opacity: 0.7; }
+    #seguinte .t { font-size: 1.8vw; font-weight: 700; }
+    #seguinte .d { font-size: 1.3vw; white-space: pre-line; }
+
+    /* Message from the sound desk to the platform: flashes, then stays; the countdown stays visible below */
+    #mensagem { position: absolute; top: 0; left: 0; right: 0; min-height: 30vh; display: none; align-items: center; justify-content: center; gap: 3vw; padding: 4vh 5vw; background: #fbbf24; color: #000; box-shadow: 0 1vh 4vh rgba(0,0,0,.5); }
+    #mensagem.piscar-msg { animation: alerta 0.8s ease-in-out 6; }
+    #mensagem p { font-size: 6vw; font-weight: 900; text-align: left; white-space: pre-line; line-height: 1.05; }
+    #mensagem .icone { font-size: 6vw; }
+    body.com-mensagem { padding-top: 32vh; }
+    @keyframes alerta { 50% { background: #ef4444; color: #fff; } }
+  </style>
+</head>
+<body>
+  <img id="logo-canto" alt="">
+
+  <div id="espera">
+    <img id="logo-espera" alt="">
+    <h1 id="espera-titulo">A carregar…</h1>
+    <div class="relogio mono" id="espera-relogio"></div>
+    <div class="mensagem" id="espera-mensagem"></div>
+    <div class="legenda fraco" id="espera-legenda"></div>
+  </div>
+
+  <div id="ativo">
+    <div class="relogio mono" id="ativo-relogio"></div>
+    <div class="mono" id="contagem"></div>
+    <div class="agora">Agora</div>
+    <div id="titulo"></div>
+    <div id="detalhe"></div>
+    <div id="obs"></div>
+    <div class="mono" id="tempos"></div>
+  </div>
+
+  <div id="seguinte">
+    <div class="rotulo">A seguir</div>
+    <div class="t" id="seguinte-titulo"></div>
+    <div class="d" id="seguinte-detalhe"></div>
+  </div>
+
+  <div id="mensagem"><span class="icone">📣</span><p id="mensagem-texto"></p></div>
+
+  <script src="present.js"></script>
+</body>
+</html>

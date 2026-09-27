@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>Definições</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f9fafb; color: #111827; padding: 24px; font-size: 14px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 20px; }
+    section { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+    h2 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .ajuda { color: #6b7280; font-size: 12.5px; margin-bottom: 12px; line-height: 1.5; }
+    label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 6px; }
+    .linha { display: flex; gap: 8px; }
+    input[type=text], select { flex: 1; width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: #fff; color: #111827; }
+    input[readonly] { background: #f9fafb; }
+    button { padding: 8px 14px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    button:hover { background: #f3f4f6; }
+    .primario { background: #111827; color: #fff; border-color: #111827; }
+    .primario:hover { background: #1f2937; }
+    .detetado { margin-top: 6px; font-size: 12px; color: #059669; }
+    .detetado.falta { color: #b45309; }
+    .rodape { display: flex; justify-content: space-between; align-items: center; color: #6b7280; font-size: 12px; }
+    .ok { color: #059669; font-weight: 600; margin-left: 8px; opacity: 0; transition: opacity .2s; }
+    .ok.visivel { opacity: 1; }
+  </style>
+</head>
+<body>
+  <h1>Definições</h1>
+
+  <section>
+    <h2>PowerPoint e pasta dos cultos</h2>
+    <p class="ajuda">Por omissão o programa procura um disco com as pastas <b>Cultos</b> e <b>Modelo</b> na raiz. Se usar outra pasta (ex.: OneDrive), escolha-a aqui.</p>
+
+    <label for="pasta">Pasta "Cultos"</label>
+    <div class="linha">
+      <input type="text" id="pasta" readonly placeholder="Automático (disco externo)">
+      <button id="escolher-pasta">Escolher…</button>
+      <button id="limpar-pasta" title="Voltar ao automático">✕</button>
+    </div>
+
+    <label for="modelo">Modelo do PowerPoint</label>
+    <div class="linha">
+      <input type="text" id="modelo" readonly placeholder="Automático (Modelo\Apresentação para o Culto - Modelo.pptx)">
+      <button id="escolher-modelo">Escolher…</button>
+      <button id="limpar-modelo" title="Voltar ao automático">✕</button>
+    </div>
+    <div class="detetado" id="detetado"></div>
+  </section>
+
+  <section>
+    <h2>Projeção</h2>
+    <p class="ajuda">Se este ecrã não estiver ligado, a projeção abre noutro ecrã e aparece um aviso.</p>
+    <label for="ecra">Ecrã de projeção</label>
+    <select id="ecra"></select>
+  </section>
+
+  <section>
+    <h2>Modo offline</h2>
+    <p class="ajuda" id="offline-info"></p>
+    <button id="sincronizar">Sincronizar agora</button>
+  </section>
+
+  <div class="rodape">
+    <span id="versao"></span>
+    <span>
+      <button id="logs">Abrir pasta de registos</button>
+      <span class="ok" id="ok">Guardado ✓</span>
+    </span>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

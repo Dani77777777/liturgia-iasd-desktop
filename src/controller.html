@@ -351,6 +351,20 @@
       background: var(--border);
     }
 
+    /* Message to the platform */
+    .msg { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; -webkit-app-region: no-drag; }
+    .msg select, .msg input {
+      width: 100%; background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px 8px; font-size: 12px; outline: none;
+    }
+    .msg-ativa {
+      display: flex; align-items: center; gap: 6px; background: #f59e0b; color: #111;
+      border-radius: 8px; padding: 6px 8px; font-size: 12px; font-weight: 700;
+    }
+    .msg-ativa span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .msg-ativa button { background: rgba(0,0,0,0.15); border: none; border-radius: 6px; padding: 2px 7px; cursor: pointer; font-weight: 700; }
+    .msg .hidden { display: none; }
+
     /* Status line */
     .status {
       text-align: center;
@@ -411,6 +425,28 @@
       <button id="btn-next" class="btn btn-next">
         Próximo &#8595;
       </button>
+    </div>
+
+    <!-- Message to the platform (shown flashing on the projection) -->
+    <div class="msg">
+      <div class="msg-ativa hidden" id="msg-ativa">
+        <span id="msg-texto"></span>
+        <button id="msg-limpar" title="Retirar do ecrã">✕</button>
+      </div>
+      <select id="msg-select">
+        <option value="">📣 Mensagem à tribuna…</option>
+        <option>Faltam 5 minutos</option>
+        <option>Faltam 2 minutos</option>
+        <option>Por favor, terminem</option>
+        <option>Aproximem-se do microfone</option>
+        <option>Microfone desligado</option>
+        <option>Aguardem um momento</option>
+        <option>Podem continuar</option>
+        <option value="__outra">Outra…</option>
+      </select>
+      <div class="msg-outra hidden" id="msg-outra">
+        <input id="msg-input" maxlength="120" placeholder="Escreva e carregue Enter">
+      </div>
     </div>
   </div>
 
@@ -527,7 +563,7 @@
         elOnAirLabel.textContent = 'NO AR';
         elCurrentTitle.className = 'current-item-title';
         elCurrentTitle.textContent = activeItem.titulo;
-        elCurrentSub.textContent = activeItem.musica || activeItem.observacoes || '';
+        elCurrentSub.textContent = [(activeItem.pessoas || []).join(' · '), activeItem.musica].filter(Boolean).join(' — ') || activeItem.observacoes || '';
       } else {
         elOnAirBadge.className = 'on-air-badge idle';
         elOnAirDot.className = 'on-air-dot idle';
@@ -564,11 +600,11 @@
       // Status text
       const doneItems = items.filter(i => i.status === 'concluido').length;
       const totalItems = items.length;
-      if (totalItems > 0) {
-        elStatusText.textContent = `${doneItems} / ${totalItems} concluídos`;
-      } else {
-        elStatusText.textContent = 'Escala vazia';
-      }
+      let status = totalItems > 0 ? `${doneItems} / ${totalItems} concluídos` : (state.evento ? 'Escala vazia' : 'Abra um culto no painel');
+      if (state.offline) status = `Offline · ${status}`;
+      if (state.semLigacao) status = `⚠ Sem ligação · ${status}`;
+      elStatusText.textContent = status;
+      elStatusText.style.color = state.semLigacao ? 'var(--orange)' : '';
 
       // Button states
       const activeIdx = (escala || []).findIndex(i => i.status === 'atual');
@@ -599,9 +635,47 @@
       window.controllerAPI.sendCommand('previous');
     });
 
+    // Message to the platform
+    const elMsgAtiva = document.getElementById('msg-ativa');
+    const elMsgTexto = document.getElementById('msg-texto');
+    const elMsgSelect = document.getElementById('msg-select');
+    const elMsgOutra = document.getElementById('msg-outra');
+    const elMsgInput = document.getElementById('msg-input');
+
+    function renderMensagem(state) {
+      const msg = state.evento && state.evento.mensagem_projecao;
+      elMsgAtiva.classList.toggle('hidden', !msg);
+      elMsgTexto.textContent = msg || '';
+      elMsgSelect.disabled = !state.evento;
+    }
+
+    elMsgSelect.addEventListener('change', () => {
+      const v = elMsgSelect.value;
+      if (v === '__outra') {
+        elMsgOutra.classList.remove('hidden');
+        elMsgInput.focus();
+      } else if (v) {
+        window.controllerAPI.enviarMensagem(v);
+        elMsgSelect.value = '';
+      }
+    });
+    elMsgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && elMsgInput.value.trim()) {
+        window.controllerAPI.enviarMensagem(elMsgInput.value.trim());
+        elMsgInput.value = '';
+        elMsgOutra.classList.add('hidden');
+        elMsgSelect.value = '';
+      } else if (e.key === 'Escape') {
+        elMsgOutra.classList.add('hidden');
+        elMsgSelect.value = '';
+      }
+    });
+    document.getElementById('msg-limpar').addEventListener('click', () => window.controllerAPI.enviarMensagem(null));
+
     // Listen for state updates from main process
     window.controllerAPI.onStateUpdate((state) => {
       renderState(state);
+      renderMensagem(state);
     });
 
     // Request initial state on load

@@ -9,8 +9,25 @@ Wrapper Electron para a aplicação de gestão de liturgia da IASD, permitindo u
 - **Deteção Automática de Escala**: Identifica automaticamente qual o culto aberto através da URL e sincroniza com o Supabase.
 - **Automação de PowerPoint**: Criação e abertura automática de apresentações PowerPoint em discos externos.
 - **Deteção de Monitores**: Identifica automaticamente novos monitores conectados.
-- **Persistência**: Lembra-se da configuração de ecrã preferida para projeção.
+- **Persistência**: Lembra-se da configuração de ecrã preferida para projeção e da posição das janelas.
 - **Menu Integrado**: Botão dinâmico "Culto" que aparece apenas quando há uma escala carregada.
+- **Ecrã de projeção em falta**: Se o projetor escolhido não estiver ligado, abre noutro ecrã e avisa (sem janelas modais).
+- **Atualizações discretas**: Transferidas em segundo plano e instaladas no próximo arranque; nunca interrompem a projeção.
+- **Modo offline completo**: Guarda só a igreja aberta por último; permite correr o culto (controlo + projeção local) sem internet e envia as alterações quando a ligação voltar.
+- **Definições** (Ficheiro › Definições…): pasta dos cultos, modelo do PowerPoint e ecrã de projeção.
+- **Bandeja do sistema e registos**: ícone junto ao relógio e registos em `%APPDATA%\<app>\logs` (Ajuda › Abrir pasta de registos).
+
+## 🗂️ Estrutura do código (`src/`)
+
+| Ficheiro | O que faz |
+|---|---|
+| `main.ts` | Arranque, eventos do Squirrel, IPC |
+| `janelas.ts` | Painel, projeção (escolha do ecrã), controlo, definições, modo online/offline |
+| `estado-culto.ts` | Culto aberto, comandos anterior/próximo, fila de alterações offline |
+| `offline-sync.ts` | Cópia offline da igreja escolhida |
+| `powerpoint.ts` | Pasta do dia e ficheiro `.pptx` |
+| `updater.ts` / `menu.ts` / `logger.ts` / `store.ts` | Atualizações, menu + bandeja, registos, persistência |
+| `offline/` | Página offline (`index.html`) e projeção offline (`present.html`) |
 
 ## 🛠️ Instalação e Desenvolvimento
 
