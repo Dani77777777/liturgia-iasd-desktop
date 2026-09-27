@@ -16,6 +16,13 @@ let nomesPorFuncao: Record<number, string> = {};
 let semLigacao = false;
 let poll: ReturnType<typeof setInterval> | null = null;
 
+/** Bumped on every local change — a fetch that started before it is outdated and gets dropped. */
+let versao = 0;
+/** Online commands already shown on screen but not yet confirmed by Supabase. */
+let aEnviar = 0;
+/** Commands are sent one after the other, in the order they were pressed. */
+let filaEnvio: Promise<void> = Promise.resolve();
+
 export const eventoAtual = () => evento;
 
 // ---------------------------------------------------------------------------
@@ -155,12 +162,15 @@ async function carregarEscala() {
 
   // '*' so it works before and after the participants migration
   const eventoId = evento.id;
+  const versaoInicial = versao;
   const [esc, car, ev] = await Promise.all([
     supabase.from('dbEscalas').select('*, membro:pessoa_id(nome), substituto:substituto_id(nome)').eq('evento_id', eventoId).order('ordem'),
     supabase.from('dbEventoCargos').select('funcao_id, pessoa_nome, substituto_id, membro:pessoa_id(nome), substituto:substituto_id(nome)').eq('evento_id', eventoId),
     supabase.from('dbEventos').select('*').eq('id', eventoId).maybeSingle(), // picks up messages sent from the website
   ]);
-  if (ev.data && evento?.id === eventoId) evento = ev.data;
+  // Something was pressed while this was loading (or is still being sent): this data is older than the screen.
+  if (versaoInicial !== versao || aEnviar > 0 || evento?.id !== eventoId) return;
+  if (ev.data) evento = ev.data;
   if (esc.error) {
     if (!semLigacao) console.warn('Controlo: sem ligação ao Supabase', esc.error.message);
     semLigacao = true;
@@ -270,19 +280,39 @@ export async function executarComando(comando: ComandoCulto) {
   if (ctx.isOfflineMode) return aplicarOffline(comando);
 
   if (comando === 'reset') return; // the web page has its own confirmation for this
+  // Worked out from what is on screen (including presses not yet confirmed),
+  // so two quick presses move two items instead of both landing on the same one.
   const destino = alvo(comando);
   if (destino === undefined) return;
+  const eventoId = evento.id;
 
-  try {
-    await definirItemAtual(evento.id, destino);
-    await carregarEscala();
-  } catch (e) {
-    console.error('Erro ao mudar de item', e);
-    if (erroDeRede(e) && Date.now() - ultimoAvisoRede > 30000) {
-      ultimoAvisoRede = Date.now();
-      avisar('Sem ligação à internet', 'Não foi possível mudar de item. Se a internet não voltar, use Liturgia › Mudar para modo offline.');
+  // 1. Show it immediately
+  const agora = new Date().toISOString();
+  escala = escala.map(i =>
+    i.id === destino ? { ...i, status: 'atual', hora_inicio: agora }
+      : i.status === 'atual' ? { ...i, status: 'concluido' }
+        : i);
+  versao++;
+  aEnviar++;
+  difundir();
+
+  // 2. Send it, after any earlier presses
+  filaEnvio = filaEnvio.then(async () => {
+    try {
+      await definirItemAtual(eventoId, destino);
+    } catch (e) {
+      console.error('Erro ao mudar de item', e);
+      if (erroDeRede(e) && Date.now() - ultimoAvisoRede > 30000) {
+        ultimoAvisoRede = Date.now();
+        avisar('Sem ligação à internet', 'Não foi possível mudar de item. Se a internet não voltar, use Liturgia › Mudar para modo offline.');
+      }
+    } finally {
+      aEnviar--;
     }
-  }
+    // 3. Once everything is sent, confirm against the database (also undoes a failed change)
+    if (aEnviar === 0) await carregarEscala();
+  });
+  return filaEnvio;
 }
 
 /** Message from the sound desk to the platform, shown flashing on the projection. */
