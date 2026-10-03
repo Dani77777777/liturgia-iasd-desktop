@@ -1,3 +1,4 @@
+import type { MusicaLouvorJA } from './louvorja';
 import { AlteracaoPendente, DadosOffline, Limites } from './tipos';
 
 export interface Guardado {
@@ -13,6 +14,12 @@ export interface Guardado {
   offlineData?: DadosOffline;
   /** Offline changes by dbEscalas id. */
   pendentes?: Record<string, AlteracaoPendente>;
+  /** LouvorJA server ("127.0.0.1:7070" when empty). */
+  louvorjaEndereco?: string;
+  /** Only needed when LouvorJA runs on another computer. */
+  louvorjaToken?: string;
+  /** Song picked in LouvorJA for each liturgy "musica" text, so it opens straight away next time. */
+  louvorjaEscolhas?: Record<string, MusicaLouvorJA>;
 }
 
 // electron-store is loaded lazily (see iniciarStore) — typed loosely on purpose.

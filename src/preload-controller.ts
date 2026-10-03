@@ -12,6 +12,13 @@ contextBridge.exposeInMainWorld('controllerAPI', {
     ipcRenderer.send('culto:mensagem', texto);
   },
 
+  /** Open the item's song in LouvorJA (id = song picked from the list). */
+  tocarLouvorJA: (texto: string, opcoes?: { id?: number; escolher?: boolean }) =>
+    ipcRenderer.invoke('louvorja:tocar', texto, opcoes),
+
+  /** Close the song open in LouvorJA. */
+  pararLouvorJA: () => ipcRenderer.invoke('louvorja:parar'),
+
   /** Ask the main process to push the current state. */
   requestState: () => {
     ipcRenderer.send('controller-request-state');

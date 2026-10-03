@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld('definicoes', {
   escolherFicheiro: () => ipcRenderer.invoke('definicoes:escolher-ficheiro'),
   abrirLogs: () => ipcRenderer.send('definicoes:abrir-logs'),
   sincronizar: () => ipcRenderer.invoke('definicoes:sincronizar'),
+  testarLouvorJA: () => ipcRenderer.invoke('definicoes:testar-louvorja'),
 });

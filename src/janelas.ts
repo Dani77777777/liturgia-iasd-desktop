@@ -270,7 +270,7 @@ export function alternarJanelaControlo() {
   const l = limitesGuardados('controlo');
   const win = new BrowserWindow({
     width: l?.width ?? 280,
-    height: l?.height ?? 440,
+    height: l?.height ?? 500,
     x: l?.x,
     y: l?.y,
     minWidth: 240,
@@ -308,7 +308,7 @@ export function abrirDefinicoes() {
   }
   const win = new BrowserWindow({
     width: 620,
-    height: 640,
+    height: 760,
     title: 'Definições',
     parent: viva(ctx.mainWindow) ? ctx.mainWindow : undefined,
     autoHideMenuBar: true,

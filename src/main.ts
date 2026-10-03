@@ -5,6 +5,7 @@ import { atualizarUi, ctx } from './contexto';
 import { carregarEventoOffline, contarPendentes, dadosOffline, definirEvento, difundir, enviarMensagem, estadoAtual, executarComando } from './estado-culto';
 import { abrirProjecaoDoCulto, aoRemoverEcra, criarJanelaPrincipal, voltarParaOnline } from './janelas';
 import { iniciarLogger, pastaLogs } from './logger';
+import { pararLouvorJA, testarLouvorJA, tocarNoLouvorJA } from './louvorja';
 import { iniciarMenuETray } from './menu';
 import { agendarSincronizacaoSilenciosa, aoMudarIgreja, sincronizar } from './offline-sync';
 import { localizarPastas } from './powerpoint';
@@ -73,6 +74,17 @@ function registarIpc() {
   });
   ipcMain.on('controller-request-state', () => difundir());
 
+  // LouvorJA (controller)
+  ipcMain.handle('louvorja:tocar', (_e, texto: unknown, opcoes: unknown) => {
+    if (typeof texto !== 'string' || !texto.trim()) return { estado: 'erro', mensagem: 'Este item não tem música.' };
+    const o = (typeof opcoes === 'object' && opcoes) ? opcoes as { id?: unknown; escolher?: unknown } : {};
+    return tocarNoLouvorJA(texto.slice(0, 200), {
+      id: Number.isInteger(o.id) && (o.id as number) > 0 ? o.id as number : undefined,
+      escolher: o.escolher === true,
+    });
+  });
+  ipcMain.handle('louvorja:parar', () => pararLouvorJA());
+
   // Settings window
   ipcMain.handle('definicoes:obter', () => {
     const principal = screen.getPrimaryDisplay().id;
@@ -90,12 +102,16 @@ function registarIpc() {
       ultimaSincronizacao: offline?.lastSync ?? null,
       pendentes: contarPendentes(),
       versao: app.getVersion(),
+      louvorjaEndereco: ler('louvorjaEndereco') ?? '',
+      louvorjaToken: ler('louvorjaToken') ?? '',
     };
   });
-  ipcMain.handle('definicoes:guardar', (_e, d: { pastaCultos?: string; ficheiroModelo?: string; projectionDisplayId?: number | null }) => {
+  ipcMain.handle('definicoes:guardar', (_e, d: { pastaCultos?: string; ficheiroModelo?: string; projectionDisplayId?: number | null; louvorjaEndereco?: string; louvorjaToken?: string }) => {
     if ('pastaCultos' in d) gravar('pastaCultos', d.pastaCultos);
     if ('ficheiroModelo' in d) gravar('ficheiroModelo', d.ficheiroModelo);
     if ('projectionDisplayId' in d) gravar('projectionDisplayId', d.projectionDisplayId ?? undefined);
+    if ('louvorjaEndereco' in d) gravar('louvorjaEndereco', String(d.louvorjaEndereco ?? '').trim());
+    if ('louvorjaToken' in d) gravar('louvorjaToken', String(d.louvorjaToken ?? '').trim());
     atualizarUi();
     return true;
   });
@@ -115,6 +131,7 @@ function registarIpc() {
   });
   ipcMain.on('definicoes:abrir-logs', () => shell.openPath(pastaLogs()));
   ipcMain.handle('definicoes:sincronizar', () => sincronizar());
+  ipcMain.handle('definicoes:testar-louvorja', () => testarLouvorJA());
 }
 
 // ============================================

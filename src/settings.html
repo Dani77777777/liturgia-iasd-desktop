@@ -13,7 +13,7 @@
     .ajuda { color: #6b7280; font-size: 12.5px; margin-bottom: 12px; line-height: 1.5; }
     label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 6px; }
     .linha { display: flex; gap: 8px; }
-    input[type=text], select { flex: 1; width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: #fff; color: #111827; }
+    input[type=text], input[type=password], select { flex: 1; width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: #fff; color: #111827; }
     input[readonly] { background: #f9fafb; }
     button { padding: 8px 14px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
     button:hover { background: #f3f4f6; }
@@ -21,6 +21,7 @@
     .primario:hover { background: #1f2937; }
     .detetado { margin-top: 6px; font-size: 12px; color: #059669; }
     .detetado.falta { color: #b45309; }
+    .opcional { font-weight: 400; color: #6b7280; }
     .rodape { display: flex; justify-content: space-between; align-items: center; color: #6b7280; font-size: 12px; }
     .ok { color: #059669; font-weight: 600; margin-left: 8px; opacity: 0; transition: opacity .2s; }
     .ok.visivel { opacity: 1; }
@@ -54,6 +55,19 @@
     <p class="ajuda">Se este ecrã não estiver ligado, a projeção abre noutro ecrã e aparece um aviso.</p>
     <label for="ecra">Ecrã de projeção</label>
     <select id="ecra"></select>
+  </section>
+
+  <section>
+    <h2>LouvorJA</h2>
+    <p class="ajuda">No controlo do culto aparece um botão para tocar a música no LouvorJA. No LouvorJA, vá a <b>Menu do Programa › Transmitir</b> e clique em <b>Conectar Servidor</b>. Use a mesma porta aqui.</p>
+    <label for="lja-endereco">Endereço do servidor</label>
+    <div class="linha">
+      <input type="text" id="lja-endereco" placeholder="127.0.0.1:7070 (este computador)">
+      <button id="lja-testar">Testar ligação</button>
+    </div>
+    <label for="lja-token">Token <span class="opcional">(só se o LouvorJA estiver noutro computador)</span></label>
+    <input type="password" id="lja-token" placeholder="Deixe vazio">
+    <div class="detetado" id="lja-resultado"></div>
   </section>
 
   <section>

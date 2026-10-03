@@ -351,6 +351,30 @@
       background: var(--border);
     }
 
+    /* LouvorJA */
+    .lja { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; -webkit-app-region: no-drag; }
+    .lja.hidden, .lja .hidden { display: none; }
+    .lja-botoes { display: flex; gap: 6px; }
+    .btn-lja { background: var(--green); color: #052e12; }
+    .btn-lja:hover { background: #16a34a; }
+    .btn-lja:disabled { opacity: 0.6; cursor: progress; }
+    .btn-lja-parar { flex: 0 0 40px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-lja-parar:hover { background: var(--border); }
+    .lja-estado { font-size: 11px; color: var(--muted); line-height: 1.35; }
+    .lja-estado.erro { color: var(--orange); }
+    .lja-estado.ok { color: var(--green); }
+    .lja-estado a { color: var(--blue); cursor: pointer; text-decoration: underline; margin-left: 4px; }
+    .lja-lista {
+      display: flex; flex-direction: column; gap: 3px; max-height: 130px; overflow-y: auto;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px;
+    }
+    .lja-lista button {
+      text-align: left; background: none; border: none; border-radius: 6px; color: var(--text);
+      padding: 5px 7px; font-size: 12px; cursor: pointer; line-height: 1.25;
+    }
+    .lja-lista button:hover { background: var(--surface2); }
+    .lja-lista small { display: block; color: var(--muted); font-size: 10px; }
+
     /* Message to the platform */
     .msg { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; -webkit-app-region: no-drag; }
     .msg select, .msg input {
@@ -403,6 +427,16 @@
         </div>
         <div class="timing-countdown" id="timing-countdown">--:--</div>
       </div>
+    </div>
+
+    <!-- LouvorJA: play the current item's song -->
+    <div class="lja hidden" id="lja">
+      <div class="lja-botoes">
+        <button id="lja-tocar" class="btn btn-lja">&#9654; Tocar no LouvorJA</button>
+        <button id="lja-parar" class="btn btn-lja-parar" title="Fechar a música no LouvorJA">&#9632;</button>
+      </div>
+      <div class="lja-estado hidden" id="lja-estado"></div>
+      <div class="lja-lista hidden" id="lja-lista"></div>
     </div>
 
     <!-- Next Item Preview -->
@@ -672,10 +706,100 @@
     });
     document.getElementById('msg-limpar').addEventListener('click', () => window.controllerAPI.enviarMensagem(null));
 
+    // LouvorJA — button for the current item's song
+    const elLja = document.getElementById('lja');
+    const btnLjaTocar = document.getElementById('lja-tocar');
+    const btnLjaParar = document.getElementById('lja-parar');
+    const elLjaEstado = document.getElementById('lja-estado');
+    const elLjaLista = document.getElementById('lja-lista');
+    const TEXTO_TOCAR = btnLjaTocar.innerHTML;
+    let ljaChave = null; // item id + song text the panel is showing
+    let ljaTexto = '';
+
+    function ljaEstado(texto, classe, acao) {
+      elLjaEstado.className = 'lja-estado' + (classe ? ' ' + classe : '');
+      elLjaEstado.textContent = texto;
+      if (acao) {
+        const a = document.createElement('a');
+        a.textContent = acao.texto;
+        a.addEventListener('click', acao.fn);
+        elLjaEstado.appendChild(a);
+      }
+      elLjaEstado.classList.toggle('hidden', !texto);
+    }
+
+    function ljaLista(musicas) {
+      elLjaLista.innerHTML = '';
+      for (const m of musicas || []) {
+        const b = document.createElement('button');
+        b.textContent = m.nome;
+        if (m.album) {
+          const s = document.createElement('small');
+          s.textContent = m.album;
+          b.appendChild(s);
+        }
+        b.addEventListener('click', () => ljaTocar({ id: m.id }));
+        elLjaLista.appendChild(b);
+      }
+      elLjaLista.classList.toggle('hidden', !(musicas && musicas.length));
+    }
+
+    function renderLouvorJA(state) {
+      const item = (state.escala || []).find(i => i.status === 'atual');
+      const texto = item && item.musica ? item.musica.trim() : '';
+      elLja.classList.toggle('hidden', !texto);
+      const chave = texto ? `${item.id}|${texto}` : null;
+      if (chave !== ljaChave) {
+        // New song on air: forget the previous one's status/list
+        ljaChave = chave;
+        ljaTexto = texto;
+        ljaEstado('');
+        ljaLista([]);
+        btnLjaTocar.disabled = false;
+        btnLjaTocar.innerHTML = TEXTO_TOCAR;
+      }
+      btnLjaTocar.title = texto ? `Tocar "${texto}" no LouvorJA` : '';
+    }
+
+    async function ljaTocar(opcoes) {
+      const chave = ljaChave;
+      btnLjaTocar.disabled = true;
+      btnLjaTocar.textContent = 'A abrir…';
+      ljaLista([]);
+      ljaEstado('');
+      let r;
+      try {
+        r = await window.controllerAPI.tocarLouvorJA(ljaTexto, opcoes);
+      } catch (e) {
+        r = { estado: 'erro', mensagem: 'Falha a contactar o LouvorJA.' };
+      }
+      if (chave !== ljaChave) return; // the item changed meanwhile
+      btnLjaTocar.disabled = false;
+      btnLjaTocar.innerHTML = TEXTO_TOCAR;
+
+      if (r.estado === 'a-tocar') {
+        const nome = r.musica.album ? `${r.musica.nome} · ${r.musica.album}` : r.musica.nome;
+        ljaEstado(`▶ ${nome}`, 'ok', { texto: 'outra', fn: () => ljaTocar({ escolher: true }) });
+      } else if (r.estado === 'escolher') {
+        ljaEstado('Qual destas?');
+        ljaLista(r.alternativas);
+      } else if (r.estado === 'erro') {
+        ljaEstado(r.mensagem, 'erro');
+      }
+    }
+
+    btnLjaTocar.addEventListener('click', () => ljaTocar());
+    btnLjaParar.addEventListener('click', async () => {
+      ljaLista([]);
+      const r = await window.controllerAPI.pararLouvorJA();
+      ljaEstado(r.estado === 'erro' ? r.mensagem : 'Música fechada no LouvorJA', r.estado === 'erro' ? 'erro' : '');
+    });
+
     // Listen for state updates from main process
     window.controllerAPI.onStateUpdate((state) => {
       renderState(state);
       renderMensagem(state);
+      renderLouvorJA(state);
     });
 
     // Request initial state on load

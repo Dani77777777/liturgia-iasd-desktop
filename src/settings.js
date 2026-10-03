@@ -40,6 +40,8 @@ async function carregar() {
   $('offline-info').textContent = `Igreja guardada: ${d.igreja ?? '—'}. Última sincronização: ${sync}.` +
     (d.pendentes ? ` ${d.pendentes} alteração(ões) feitas offline por enviar.` : '');
   $('versao').textContent = `Versão ${d.versao}`;
+  $('lja-endereco').value = d.louvorjaEndereco;
+  $('lja-token').value = d.louvorjaToken;
 }
 
 $('escolher-pasta').onclick = async () => {
@@ -54,6 +56,18 @@ $('escolher-modelo').onclick = async () => {
 $('limpar-modelo').onclick = () => guardar({ ficheiroModelo: '' });
 $('ecra').onchange = (e) => guardar({ projectionDisplayId: e.target.value ? Number(e.target.value) : null });
 $('logs').onclick = () => api.abrirLogs();
+$('lja-endereco').onchange = (e) => guardar({ louvorjaEndereco: e.target.value });
+$('lja-token').onchange = (e) => guardar({ louvorjaToken: e.target.value });
+$('lja-testar').onclick = async () => {
+  // Save what is typed first, in case the field still has focus
+  await api.guardar({ louvorjaEndereco: $('lja-endereco').value, louvorjaToken: $('lja-token').value });
+  const r = $('lja-resultado');
+  r.className = 'detetado';
+  r.textContent = 'A testar…';
+  const t = await api.testarLouvorJA();
+  r.className = t.ok ? 'detetado' : 'detetado falta';
+  r.textContent = (t.ok ? '✓ ' : '⚠ ') + t.mensagem;
+};
 $('sincronizar').onclick = async () => {
   $('sincronizar').disabled = true;
   $('sincronizar').textContent = 'A sincronizar…';

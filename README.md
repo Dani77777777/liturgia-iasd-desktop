@@ -14,7 +14,8 @@ Wrapper Electron para a aplicação de gestão de liturgia da IASD, permitindo u
 - **Ecrã de projeção em falta**: Se o projetor escolhido não estiver ligado, abre noutro ecrã e avisa (sem janelas modais).
 - **Atualizações discretas**: Transferidas em segundo plano e instaladas no próximo arranque; nunca interrompem a projeção.
 - **Modo offline completo**: Guarda só a igreja aberta por último; permite correr o culto (controlo + projeção local) sem internet e envia as alterações quando a ligação voltar.
-- **Definições** (Ficheiro › Definições…): pasta dos cultos, modelo do PowerPoint e ecrã de projeção.
+- **Definições** (Ficheiro › Definições…): pasta dos cultos, modelo do PowerPoint, ecrã de projeção e LouvorJA.
+- **Tocar no LouvorJA**: no controlo, quando o item no ar tem música, o botão ▶ abre-a no LouvorJA pela API HTTP (no LouvorJA: Menu do Programa › Transmitir › Conectar Servidor; funciona com a API v1 do LouvorJA 26.11 e com a v2). Procura pelo número e pelo título do hino; se houver várias versões, deixa escolher e lembra a escolha.
 - **Bandeja do sistema e registos**: ícone junto ao relógio e registos em `%APPDATA%\<app>\logs` (Ajuda › Abrir pasta de registos).
 
 ## 🗂️ Estrutura do código (`src/`)
@@ -26,6 +27,7 @@ Wrapper Electron para a aplicação de gestão de liturgia da IASD, permitindo u
 | `estado-culto.ts` | Culto aberto, comandos anterior/próximo, fila de alterações offline |
 | `offline-sync.ts` | Cópia offline da igreja escolhida |
 | `powerpoint.ts` | Pasta do dia e ficheiro `.pptx` |
+| `louvorja.ts` | Procurar e abrir/fechar músicas no LouvorJA (API v2) |
 | `updater.ts` / `menu.ts` / `logger.ts` / `store.ts` | Atualizações, menu + bandeja, registos, persistência |
 | `offline/` | Página offline (`index.html`) e projeção offline (`present.html`) |
 
